@@ -15,7 +15,7 @@ use std::ffi::{CString, c_void};
 use qloudicable_core::*;
 
 /// Registry names can differ per chip family, so all known ones are tried.
-const PORT_KEYS: [&str; 6] = ["PortType", "PortTypeDescription", "PortDescription", "PortNumber", "ConnectionActive", "TransportsActive"];
+const PORT_KEYS: [&str; 5] = ["PortType", "PortTypeDescription", "PortNumber", "ConnectionActive", "TransportsActive"];
 const PARENT_KEYS: [&str; 6] = ["ParentBuiltInPortType", "ParentPortType", "ParentBuiltInPortNumber", "ParentPortNumber", "Priority", "Metadata"];
 const POWER_KEYS: [&str; 7] = ["ParentBuiltInPortType", "ParentPortType", "ParentBuiltInPortNumber", "ParentPortNumber", "Priority", "PowerSourceOptions", "WinningPowerSourceOption"];
 const USB_KEYS: [&str; 7] = ["idVendor", "idProduct", "bcdUSB", "Device Speed", "USB Vendor Name", "USB Product Name", "bDeviceClass"];
@@ -152,6 +152,7 @@ pub fn collect() -> Snapshot {
             }
         }
     }
+    ports.sort_by(|a, b| a.label.cmp(&b.label));
     let find = |ports: &mut Vec<Port>, key: (i64, i64)| {
         let id = format!("{}:{}", key.0, key.1);
         ports.iter().position(|p| p.id == id)

@@ -133,9 +133,13 @@ pub fn parse_usb_device(v: &Value) -> Option<UsbDevice> {
     })
 }
 
-/// Real physical ports carry `PortTypeDescription`; other IOPort nodes don't.
+/// Other IOPort nodes have no `PortTypeDescription`. Macs also publish HDMI, SD card
+/// and, in virtual machines, virtual ports here, which don't take a USB-C cable.
 pub fn parse_port(v: &Value, index: usize) -> Option<Port> {
-    v.text("PortTypeDescription")?;
+    let kind = v.text("PortTypeDescription")?.to_string();
+    if !kind.contains("USB-C") && !kind.contains("MagSafe") {
+        return None;
+    }
     let ty = v.num("PortType").unwrap_or(0);
     let number = v.num("PortNumber").unwrap_or(index as i64 + 1);
     let transports = match v.get("TransportsActive") {
@@ -150,7 +154,7 @@ pub fn parse_port(v: &Value, index: usize) -> Option<Port> {
     };
     Some(Port {
         id: format!("{ty}:{number}"),
-        label: v.text("PortDescription").map_or_else(|| format!("USB-C port {number}"), str::to_string),
+        label: format!("{kind} port {number}"),
         connected: v.flag("ConnectionActive").unwrap_or(false),
         transports,
         ..Default::default()
@@ -211,7 +215,13 @@ mod tests {
     fn port_fields() {
         let v = d(vec![("PortTypeDescription", Value::Str("USB-C".into())), ("PortType", Value::Num(2)), ("PortNumber", Value::Num(1)), ("ConnectionActive", Value::Bool(true)), ("TransportsActive", Value::List(vec![Value::Str("USB3".into())]))]);
         let p = parse_port(&v, 0).unwrap();
+        assert_eq!(p.label, "USB-C port 1");
         assert!(parse_port(&d(vec![("PortType", Value::Num(2))]), 0).is_none());
+        for other in ["HDMI", "SD Card", "Virtual"] {
+            assert!(parse_port(&d(vec![("PortTypeDescription", Value::Str(other.into()))]), 0).is_none());
+        }
+        let magsafe = d(vec![("PortTypeDescription", Value::Str("MagSafe 3".into())), ("PortNumber", Value::Num(1))]);
+        assert_eq!(parse_port(&magsafe, 0).unwrap().label, "MagSafe 3 port 1");
         assert_eq!(p.id, "2:1");
         assert!(p.connected);
         assert_eq!(p.transports, vec!["USB3"]);

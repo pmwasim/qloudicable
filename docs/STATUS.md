@@ -6,7 +6,7 @@ Build scripts put installers in `dist-out/`, which is gitignored.
 | --- | --- | --- | --- |
 | Ubuntu | Yes: .deb, AppImage, CLI | Yes: app and CLI on one desktop PC | No: that PC has no typec ports |
 | Windows | Yes: NSIS installer, CLI | CLI under Wine only; installer and app not run | No |
-| macOS | No: needs a Mac (`scripts/build-macos.sh`) | No | No |
+| macOS | Yes: GitHub Actions (`.github/workflows/macos.yml`) | CLI on an Apple silicon MacBook and a CI runner; app not opened | Partly: phone over USB-C, no e-marked cable or charger |
 | Android | Yes: unsigned release APK for 4 ABIs | x86_64 emulator only (API 35); no phone | No |
 
 Logic is tested with fixtures built from the kernel ABI and PD tables, not captures from
@@ -41,8 +41,13 @@ Not verified:
 - The `dialog` plugin on Android: the only thing that calls it, the Drive write test, is hidden.
 - Signed-APK install, Play Store checks and battery use.
 
+## macOS: what was and wasn't verified
+On an Apple silicon MacBook with a phone attached over USB-C, the CLI found the right port and
+phone, and its battery values and the absence of a cable chip matched `ioreg`. Not verified: opening
+the app, an e-marked cable, a charger's power profiles, and MagSafe. USB devices aren't yet linked
+to their port on macOS, so data-speed findings can't name the cable there.
+
 ## Before shipping
 1. Run Android on a real phone, with the battery below 80% and a known charger.
-2. Build on a Mac and run on Apple silicon. Port matching there is untested.
 3. Run every platform with real cables: an e-marked one, an unmarked one, a charger.
 4. Sign: Windows code-signing certificate, Apple Developer ID, Android release keystore.
