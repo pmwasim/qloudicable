@@ -14,6 +14,11 @@ val tauriProperties = Properties().apply {
     }
 }
 
+val keystorePropertiesFile = listOf(file("key.properties"), file("../key.properties")).firstOrNull { it.exists() }
+val keystoreProperties = Properties().apply {
+    keystorePropertiesFile?.inputStream()?.use { load(it) }
+}
+
 android {
     compileSdk = 37
     namespace = "com.qloudihub.qloudicable"
@@ -24,6 +29,17 @@ android {
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        create("release") {
+            val kPath = keystoreProperties.getProperty("storeFile")
+            if (kPath != null && file(kPath).exists()) {
+                storeFile = file(kPath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -39,6 +55,10 @@ android {
             }
         }
         getByName("release") {
+            val kPath = keystoreProperties.getProperty("storeFile")
+            if (kPath != null && file(kPath).exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                enable = true
             }

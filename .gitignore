@@ -6,3 +6,6 @@ node_modules/
 app/src-tauri/gen/android/.gradle/
 app/src-tauri/gen/android/app/build/
 dist-out/
+*.keystore
+*.jks
+key.properties
