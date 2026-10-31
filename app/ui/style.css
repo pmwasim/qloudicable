@@ -316,3 +316,12 @@ details.more dd { margin: 0; color: var(--ink); font-weight: 600; }
   #findings-chips { display: none; }
   .stage { justify-content: flex-start; padding-top: 16px; }
 }
+
+/* Phones: make the answer fit its space without clipping */
+@media (max-width: 820px) {
+  .stage { overflow: visible; min-height: 0; padding: 14px 14px 12px; gap: 8px; }
+  .aura { inset: -12%; border-radius: 26px; }
+  .stage-cable { min-height: 70px; max-height: 96px; }
+  .hero-title { line-height: 1.08; }
+  .stage .btn.big { min-height: 42px; }
+}
