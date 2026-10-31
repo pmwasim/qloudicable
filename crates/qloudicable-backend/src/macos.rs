@@ -18,7 +18,7 @@ use qloudicable_core::*;
 const PORT_KEYS: [&str; 5] = ["PortType", "PortTypeDescription", "PortNumber", "ConnectionActive", "TransportsActive"];
 const PARENT_KEYS: [&str; 6] = ["ParentBuiltInPortType", "ParentPortType", "ParentBuiltInPortNumber", "ParentPortNumber", "Priority", "Metadata"];
 const POWER_KEYS: [&str; 7] = ["ParentBuiltInPortType", "ParentPortType", "ParentBuiltInPortNumber", "ParentPortNumber", "Priority", "PowerSourceOptions", "WinningPowerSourceOption"];
-const USB_KEYS: [&str; 7] = ["idVendor", "idProduct", "bcdUSB", "Device Speed", "USB Vendor Name", "USB Product Name", "bDeviceClass"];
+const USB_KEYS: [&str; 8] = ["idVendor", "idProduct", "bcdUSB", "Device Speed", "USB Vendor Name", "USB Product Name", "bDeviceClass", "locationID"];
 const BATTERY_KEYS: [&str; 6] = ["Voltage", "Amperage", "IsCharging", "ExternalConnected", "FullyCharged", "CurrentCapacity"];
 
 const PORT_CLASSES: [&str; 7] = [
@@ -175,7 +175,25 @@ pub fn collect() -> Snapshot {
         }
     }
 
-    let usb_devices = services("IOUSBHostDevice", &USB_KEYS).iter().filter_map(parse_usb_device).collect();
+    let mut usb_devices: Vec<UsbDevice> = services("IOUSBHostDevice", &USB_KEYS).iter().filter_map(parse_usb_device).collect();
+
+    for dev in &mut usb_devices {
+        if let Some(ref pid) = dev.port_id {
+            if !ports.iter().any(|p| p.id == *pid) {
+                let connected_ports: Vec<&Port> = ports.iter().filter(|p| p.connected).collect();
+                if connected_ports.len() == 1 {
+                    dev.port_id = Some(connected_ports[0].id.clone());
+                } else {
+                    dev.port_id = None;
+                }
+            }
+        } else {
+            let connected_ports: Vec<&Port> = ports.iter().filter(|p| p.connected).collect();
+            if connected_ports.len() == 1 {
+                dev.port_id = Some(connected_ports[0].id.clone());
+            }
+        }
+    }
     let power = battery();
     let has_ports = !ports.is_empty();
     let intel = "Macs without Apple silicon don't publish USB-C port data.";

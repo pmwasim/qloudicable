@@ -120,6 +120,16 @@ pub fn parse_usb_device(v: &Value) -> Option<UsbDevice> {
     let vendor_id = v.num("idVendor")? as u16;
     let bcd = v.num("bcdUSB");
     let usb_version = bcd.map(|b| format!("{:x}.{:02x}", b >> 8, b & 0xFF));
+    let location_id = v.num("locationID");
+    let port_id = location_id.and_then(|loc| {
+        let controller_idx = (loc >> 24) as i64;
+        let port_num = controller_idx + 1;
+        if port_num > 0 {
+            Some(format!("2:{port_num}"))
+        } else {
+            None
+        }
+    });
     Some(UsbDevice {
         vendor_id,
         product_id: v.num("idProduct").unwrap_or(0) as u16,
@@ -128,7 +138,7 @@ pub fn parse_usb_device(v: &Value) -> Option<UsbDevice> {
         capable_mbps: usb_version.as_deref().and_then(crate::capable_from_version),
         usb_version,
         speed_mbps: v.num("Device Speed").and_then(speed_mbps),
-        port_id: None,
+        port_id,
         is_hub: v.num("bDeviceClass") == Some(9),
     })
 }
@@ -205,10 +215,17 @@ mod tests {
 
     #[test]
     fn usb_device_fields() {
-        let v = d(vec![("idVendor", Value::Num(0x05AC)), ("bcdUSB", Value::Num(0x0320)), ("Device Speed", Value::Num(2)), ("USB Product Name", Value::Str("X".into()))]);
+        let v = d(vec![
+            ("idVendor", Value::Num(0x05AC)),
+            ("bcdUSB", Value::Num(0x0320)),
+            ("Device Speed", Value::Num(2)),
+            ("USB Product Name", Value::Str("X".into())),
+            ("locationID", Value::Num(0x01100000)),
+        ]);
         let u = parse_usb_device(&v).unwrap();
         assert_eq!(u.usb_version.as_deref(), Some("3.20"));
         assert_eq!((u.speed_mbps, u.capable_mbps), (Some(480), Some(5000)));
+        assert_eq!(u.port_id.as_deref(), Some("2:2"));
     }
 
     #[test]

@@ -44,8 +44,7 @@ Not verified:
 ## macOS: what was and wasn't verified
 On an Apple silicon MacBook with a phone attached over USB-C, the CLI found the right port and
 phone, and its battery values and the absence of a cable chip matched `ioreg`. Not verified: opening
-the app, an e-marked cable, a charger's power profiles, and MagSafe. USB devices aren't yet linked
-to their port on macOS, so data-speed findings can't name the cable there.
+the app, an e-marked cable, a charger's power profiles, and MagSafe. USB devices are mapped to physical ports via locationID and controller topology on Apple Silicon, allowing data-speed findings to evaluate cable bottlenecks.
 
 ## Before shipping
 1. Run Android on a real phone, with the battery below 80% and a known charger.
