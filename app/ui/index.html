@@ -3,74 +3,130 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
   <title>QloudiCable</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="bar">
-    <img src="mark.svg" alt="" width="30" height="30">
-    <div class="brand"><strong>QloudiCable</strong><span>by qloudihub.com</span></div>
-    <div class="actions">
-      <button id="copy" type="button">Copy report</button>
-      <button id="refresh" type="button">Refresh</button>
+  <a class="skip" href="#main">Skip to results</a>
+
+  <header class="top">
+    <div class="brand">
+      <img src="mark.svg" alt="" width="32" height="32">
+      <div>
+        <strong>QloudiCable</strong>
+        <span>What can this USB-C cable really do?</span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="copy" type="button" class="btn ghost">Copy summary</button>
+      <button id="refresh" type="button" class="btn">Refresh</button>
     </div>
   </header>
-  <main>
-    <section id="verdict" class="verdict" aria-live="polite"></section>
-    <div id="error" class="error" role="alert" hidden></div>
-    <section id="findings-box"><h2>What we found</h2><ul id="findings" class="findings"></ul></section>
-    <section><h2>Ports</h2><div id="ports" class="cards"></div></section>
-    <section id="power-box"><h2>Power right now</h2><div id="power" class="card"></div></section>
-    <section id="devices-box"><h2>USB devices</h2><div id="devices" class="card list"></div></section>
-    <section>
-      <h2>Tests & Simulation</h2>
-      <div class="cards">
-        <div class="card test">
-          <h3>Charge test</h3>
-          <p>Reads charging power once a second for 30 seconds and looks for drops. Plug in the charger and cable you want to check, with the battery below 80%.</p>
-          <button id="charge-run" type="button">Start charge test</button>
-          <p id="charge-out" class="out" aria-live="polite"></p>
-          <svg id="charge-chart" class="viz"></svg>
-          <div id="charge-stats" class="stats"></div>
+
+  <main id="main">
+    <div id="error" class="notice" role="alert" hidden></div>
+
+    <section class="hero" id="hero" aria-labelledby="hero-title" data-level="idle">
+      <span class="hero-status" id="hero-status"></span>
+      <h1 id="hero-title" class="hero-title">Checking your ports…</h1>
+      <p id="hero-text" class="hero-text" aria-live="polite"></p>
+      <button id="hero-action" type="button" class="btn primary" hidden></button>
+    </section>
+
+    <section id="findings-box" aria-labelledby="findings-title" hidden>
+      <h2 id="findings-title" class="eyebrow">What we found</h2>
+      <ul id="findings" class="findings"></ul>
+      <button id="findings-more" type="button" class="btn link" hidden></button>
+    </section>
+
+    <section aria-labelledby="ports-title">
+      <h2 id="ports-title" class="eyebrow">Your ports</h2>
+      <div id="ports" class="grid"></div>
+    </section>
+
+    <section id="power-box" aria-labelledby="power-title">
+      <h2 id="power-title" class="eyebrow">Power right now</h2>
+      <div id="power" class="card"></div>
+    </section>
+
+    <section class="tools" aria-labelledby="tools-title">
+      <h2 id="tools-title" class="eyebrow">Tests</h2>
+      <div class="tablist" role="tablist" aria-label="Tests">
+        <button role="tab" id="tab-charge" aria-controls="panel-charge" class="tab">Charging</button>
+        <button role="tab" id="tab-watch" aria-controls="panel-watch" class="tab">Port watch</button>
+        <button role="tab" id="tab-guide" aria-controls="panel-guide" class="tab">Both ends</button>
+        <button role="tab" id="tab-drive" aria-controls="panel-drive" class="tab">Drive speed</button>
+      </div>
+
+      <div id="panel-charge" role="tabpanel" aria-labelledby="tab-charge" class="panel">
+        <p class="panel-text">Reads charging power once a second for 30 seconds and looks for drops. Plug in the charger and cable you want to check. Keep the battery below 80% for the clearest result.</p>
+        <div class="panel-actions">
+          <button id="charge-run" type="button" class="btn primary">Start charging test</button>
         </div>
-        <div class="card test" id="write-card">
-          <h3>Drive write test</h3>
-          <p>Writes a 256 MB temporary file to a folder you pick on a USB drive, times it, then deletes it. Nothing else on the drive is touched.</p>
-          <button id="write-run" type="button">Choose folder and start</button>
-          <p id="write-out" class="out" aria-live="polite"></p>
+        <svg id="charge-chart" class="viz"></svg>
+        <div id="charge-stats" class="stats"></div>
+        <p id="charge-out" class="out" aria-live="polite"></p>
+      </div>
+
+      <div id="panel-watch" role="tabpanel" aria-labelledby="tab-watch" class="panel" hidden>
+        <p class="panel-text">Watches every port for 10 seconds and flags a cable that keeps dropping and reconnecting. Plug and unplug while it runs if you're testing a loose connection.</p>
+        <div class="panel-actions">
+          <button id="watch-run" type="button" class="btn primary">Watch ports for 10 s</button>
         </div>
-        <div class="card test wide" id="watch-card">
-          <h3>Port watch</h3>
-          <p>Watches each port for 10 seconds and flags a cable that keeps dropping and reconnecting. Plug and unplug while it runs if you want to test a loose connection.</p>
-          <button id="watch-run" type="button">Watch ports for 10 s</button>
-          <svg id="watch-timeline" class="viz"></svg>
-          <div id="watch-stats" class="stats"></div>
-          <p id="watch-out" class="out" aria-live="polite"></p>
+        <svg id="watch-timeline" class="viz"></svg>
+        <div id="watch-stats" class="stats"></div>
+        <p id="watch-out" class="out" aria-live="polite"></p>
+      </div>
+
+      <div id="panel-guide" role="tabpanel" aria-labelledby="tab-guide" class="panel" hidden>
+        <p class="panel-text">Checks each end of a cable in both plug positions. Results that disagree can point to one faulty end. A single position that fails can point to a dirty contact.</p>
+        <div id="guide-steps" class="step-row"></div>
+        <svg id="guide-cable" class="viz"></svg>
+        <p id="guide-text" class="out" aria-live="polite"></p>
+        <div class="panel-actions">
+          <button id="guide-record" type="button" class="btn primary">Record this position</button>
+          <button id="guide-reset" type="button" class="btn ghost">Start over</button>
         </div>
-        <div class="card test wide" id="guide-card">
-          <h3>Both-ends test</h3>
-          <p>Checks each end of a cable in both plug positions. Two results that disagree can show a faulty end, while one position that fails can show a dirty contact.</p>
-          <div id="guide-steps" class="step-row"></div>
-          <svg id="guide-cable" class="viz"></svg>
-          <p id="guide-text" class="out" aria-live="polite"></p>
-          <div class="qa-actions">
-            <button id="guide-record" type="button">Record this position</button>
-            <button id="guide-reset" type="button" class="btn-quiet">Start over</button>
-          </div>
-          <div id="guide-matrix" class="cells"></div>
-          <p id="guide-verdict" class="out" aria-live="polite"></p>
+        <div id="guide-matrix" class="cells"></div>
+        <p id="guide-verdict" class="out" aria-live="polite"></p>
+      </div>
+
+      <div id="panel-drive" role="tabpanel" aria-labelledby="tab-drive" class="panel" hidden>
+        <p class="panel-text">Writes a 256 MB temporary file to a folder you pick on a drive, times it, then deletes it. Nothing else on the drive is touched.</p>
+        <div class="panel-actions">
+          <button id="write-run" type="button" class="btn primary">Choose folder and start</button>
         </div>
-        <div class="card test" id="selfcheck-card">
-          <h3>Self-check</h3>
-          <p>Checks that this report is internally consistent. It does not test the cable.</p>
-          <button id="qa-run" type="button">Run self-check</button>
-          <div id="qa-out" class="qa-results" aria-live="polite" hidden></div>
-        </div>
+        <p id="write-out" class="out" aria-live="polite"></p>
       </div>
     </section>
-    <section><h2>What this device lets us see</h2><div id="access" class="card list"></div></section>
+
+    <section aria-labelledby="devices-title" id="devices-box">
+      <h2 id="devices-title" class="eyebrow">Connected devices</h2>
+      <div id="devices" class="card list"></div>
+      <button id="devices-more" type="button" class="btn link" hidden></button>
+    </section>
+
+    <section aria-labelledby="access-title">
+      <h2 id="access-title" class="eyebrow">What this device can show</h2>
+      <div id="access" class="card list"></div>
+    </section>
+
+    <details class="diagnostics">
+      <summary>Diagnostics</summary>
+      <div class="panel-actions">
+        <button id="copy-json" type="button" class="btn ghost">Copy full report (JSON)</button>
+        <button id="qa-run" type="button" class="btn ghost">Run self-check</button>
+      </div>
+      <p class="muted">The self-check tests that this report is internally consistent. It does not test any cable.</p>
+      <div id="qa-out" class="qa-results" aria-live="polite" hidden></div>
+    </details>
   </main>
-  <footer>QloudiCable <span id="version"></span> reads cable data on this device. Nothing leaves it unless you copy the report yourself.</footer>
+
+  <footer class="foot">
+    <p>QloudiCable <span id="version"></span> reads cable data on this device. Nothing leaves it unless you copy something yourself.</p>
+  </footer>
+
   <script src="viz.js"></script>
   <script src="app.js"></script>
   <script src="features.js"></script>
