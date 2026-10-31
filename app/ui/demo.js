@@ -90,38 +90,18 @@
           }
         };
       }
-      if (cmd === "qa_audit") {
+      if (cmd === "self_check") {
         return {
           total_checks: 4,
           passed_checks: 4,
           pass_rate_pct: 100.0,
-          certified: true,
-          audit_notes: [
+          passed: true,
+          notes: [
             "Port ID mapping valid",
             "Power telemetry within USB PD 240W spec",
             "Findings properly prioritized by severity",
             "E-Marker VDO payloads conform to USB PD structures"
           ]
-        };
-      }
-      if (cmd === "evolution_status") {
-        return {
-          env: "development",
-          circuit_breaker: { failure_threshold: 3, failure_count: 0, is_tripped: false, rollback_mode: false },
-          flags: {
-            virtual_cable_sandbox: { name: "virtual_cable_sandbox", description: "Interactive simulation sandbox", enabled: true, rollout_pct: 100, allowed_envs: ["development", "production"] },
-            dynamic_resistance_meter: { name: "dynamic_resistance_meter", description: "Live milliohm R_loop calculation", enabled: true, rollout_pct: 100, allowed_envs: ["development", "production"] },
-            predictive_dropout_analysis: { name: "predictive_dropout_analysis", description: "Machine learning jitter heuristics", enabled: true, rollout_pct: 50, allowed_envs: ["development"] }
-          },
-          active_variants: { "virtual_cable_sandbox:host": "treatment_a" }
-        };
-      }
-      if (cmd === "trip_circuit_breaker") {
-        return {
-          env: "development",
-          circuit_breaker: { failure_threshold: 3, failure_count: 3, is_tripped: true, rollback_mode: true },
-          flags: {},
-          active_variants: {}
         };
       }
       if (cmd === "write_test") return { summary: "Wrote at 1840 Mbps." };

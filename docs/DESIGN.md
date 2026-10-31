@@ -63,6 +63,9 @@ mid-read (found in WhatCable issue #181).
   to disk, deletes it. Existing files can't be overwritten. Desktop only for now: Android
   needs the system folder picker wired in.
 
+## Environments, staged rollout and rollback
+These live in the release process, not the app: see [RELEASING.md](RELEASING.md).
+
 ## Privacy
 Nothing is sent anywhere. There is no telemetry, no update check and no account. Device
 serial numbers are not collected. A report leaves the device only if the user copies it.

@@ -50,7 +50,7 @@ the app, an e-marked cable, a charger's power profiles, and MagSafe. USB devices
 macOS USB device to port matching, `--resistance`, `--sentinel`, 140 W EPR decoding.
 
 The virtual cable sandbox and `--matrix-test` results are simulated and say nothing about a real
-cable. `--qa-audit` is an internal self-check of the report's consistency, not a test of a cable.
+cable. `--self-check` is an internal self-check of the report's consistency, not a test of a cable.
 
 ## Known gap
 Android bundles carry no native debug symbols, so Google Play shows an advisory warning and native

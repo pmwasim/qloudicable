@@ -139,7 +139,7 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; over
   .badge.problem { background: #2d0e0d; color: #f28b82; border-color: #8c1d18; }
 }
 
-/* QA & Continuous Evolution Styling */
+/* Self-check */
 .qa-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .btn-warn {
   border-color: #c5221f !important;
@@ -152,7 +152,7 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; over
   .btn-warn { color: #f28b82 !important; border-color: #f28b82 !important; }
   .btn-warn:hover { background: #2d0e0d !important; }
 }
-.qa-results, .evolution-results {
+.qa-results {
   margin-top: 12px;
   padding: 12px 14px;
   background: var(--bg);

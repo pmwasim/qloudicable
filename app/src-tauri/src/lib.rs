@@ -1,5 +1,5 @@
 use qloudicable_core::bench::{self, ChargeTest, DataTest};
-use qloudicable_core::evolution::{EvolutionManager, QaScorecard};
+use qloudicable_core::selfcheck::SelfCheck;
 use qloudicable_core::virtual_engine::{
     VirtualCableProfile, VirtualTarget, VirtualTestReport, VirtualTester,
 };
@@ -75,22 +75,10 @@ fn virtual_test(profile: String, target: String) -> Result<VirtualTestReport, St
 }
 
 #[tauri::command]
-fn qa_audit<R: Runtime>(app: AppHandle<R>) -> Result<QaScorecard, String> {
+fn self_check<R: Runtime>(app: AppHandle<R>) -> Result<SelfCheck, String> {
     let snap = snapshot(&app)?;
     let rep = diagnose(&snap);
-    Ok(QaScorecard::evaluate(&rep, &snap))
-}
-
-#[tauri::command]
-fn evolution_status() -> EvolutionManager {
-    EvolutionManager::default()
-}
-
-#[tauri::command]
-fn trip_circuit_breaker() -> EvolutionManager {
-    let mut mgr = EvolutionManager::default();
-    mgr.rollback_to_safe_state();
-    mgr
+    Ok(SelfCheck::evaluate(&rep, &snap))
 }
 
 #[tauri::command]
@@ -115,9 +103,7 @@ pub fn run() {
             power_sample,
             charge_result,
             virtual_test,
-            qa_audit,
-            evolution_status,
-            trip_circuit_breaker,
+            self_check,
             write_test
         ])
         .run(tauri::generate_context!())

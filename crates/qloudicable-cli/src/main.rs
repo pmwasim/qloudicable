@@ -1,8 +1,8 @@
 use qloudicable_backend::{collect, tests_active};
 use qloudicable_core::{
-    bench, diagnose,
-    evolution::*,
-    render, resistance, stability, test_matrix,
+    bench, diagnose, render, resistance,
+    selfcheck::SelfCheck,
+    stability, test_matrix, version_label,
     virtual_engine::{VirtualCableProfile, VirtualTarget, VirtualTester},
 };
 use std::path::Path;
@@ -20,8 +20,7 @@ USAGE:
   qloudicable --sentinel [S]      Monitor connection stability & micro-dropouts for S seconds (default 30)
   qloudicable --matrix-test       Run synthetic hardware scenario simulation matrix
   qloudicable --virtual-test [P]  Simulate a virtual cable against chargers/devices (default: all profiles)
-  qloudicable --qa-audit          Execute internal self-check
-  qloudicable --evolution-status  Display environment flags, A/B experiments, and circuit breaker
+  qloudicable --self-check        Check this report's internal consistency
   qloudicable --write-test DIR    Time a 256 MB write to DIR, then delete the test file
   qloudicable --version
   qloudicable --help
@@ -47,11 +46,10 @@ fn main() {
         Some("--sentinel") => sentinel_monitor(args.get(1)),
         Some("--matrix-test") => matrix_test(),
         Some("--virtual-test") => virtual_test(args.get(1)),
-        Some("--qa-audit") => qa_audit(),
-        Some("--evolution-status") => evolution_status(),
+        Some("--self-check") => self_check(),
         Some("--write-test") => write_test(args.get(1)),
         Some("--version") => {
-            println!("qloudicable {}", env!("CARGO_PKG_VERSION"));
+            println!("qloudicable {}", version_label());
             0
         }
         Some("--help" | "-h") => {
@@ -351,62 +349,15 @@ fn virtual_test(profile_arg: Option<&String>) -> i32 {
     0
 }
 
-fn qa_audit() -> i32 {
+fn self_check() -> i32 {
     let snap = collect();
     let rep = diagnose(&snap);
-    let scorecard = QaScorecard::evaluate(&rep, &snap);
+    let check = SelfCheck::evaluate(&rep, &snap);
 
-    println!("=== QloudiCable Self-Check ===");
-    println!("Platform       : {:?}", snap.platform);
-    println!("Total Checks   : {}", scorecard.total_checks);
-    println!("Passed Checks  : {}", scorecard.passed_checks);
-    println!("Pass Rate      : {:.1}%", scorecard.pass_rate_pct);
-    println!(
-        "Self-check     : {}",
-        if scorecard.certified {
-            format!(
-                "{} of {} passed",
-                scorecard.passed_checks, scorecard.total_checks
-            )
-        } else {
-            format!(
-                "FAILED ({} of {} passed)",
-                scorecard.passed_checks, scorecard.total_checks
-            )
-        }
-    );
-    println!("\nVerification Audit Log:");
-    for note in &scorecard.audit_notes {
+    println!("{}/{} passed", check.passed_checks, check.total_checks);
+    for note in &check.notes {
         println!("  - {note}");
     }
 
-    if scorecard.certified { 0 } else { 1 }
-}
-
-fn evolution_status() -> i32 {
-    let mut mgr = EvolutionManager::default();
-    println!("=== QloudiCable Evolution, Environment & Feature Flags ===");
-    println!("Active Environment : {:?}", mgr.env);
-    println!(
-        "Circuit Breaker    : {}",
-        if mgr.circuit_breaker.is_tripped {
-            "TRIPPED (ROLLBACK ACTIVE)"
-        } else {
-            "HEALTHY (ALL CLEAR)"
-        }
-    );
-    println!("Failures Logged    : {}", mgr.circuit_breaker.failure_count);
-
-    println!("\nRegistered Feature Flags & A/B Configurations:");
-    let flags: Vec<_> = mgr.flags.clone().into_iter().collect();
-    for (name, flag) in &flags {
-        let active = flag.is_active_for(mgr.env, "current_host");
-        let variant = mgr.evaluate_ab_variant(name, "current_host");
-        println!(
-            "  * {:<30} : Enabled: {:<5} | Rollout: {:>3}% | Active: {:<5} | Variant: {:?}",
-            name, flag.enabled, flag.rollout_pct, active, variant
-        );
-        println!("    Description: {}", flag.description);
-    }
-    0
+    if check.passed { 0 } else { 1 }
 }

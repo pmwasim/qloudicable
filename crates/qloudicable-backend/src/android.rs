@@ -72,7 +72,7 @@ pub fn snapshot(f: AndroidFacts, sysfs: Snapshot) -> Snapshot {
     let has_typec = !sysfs.ports.is_empty();
     let hidden = "Android keeps this from normal apps.";
     Snapshot {
-        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        tool_version: qloudicable_core::version_label(),
         platform: Platform::Android,
         capabilities: Capabilities {
             cable_identity: if has_typec {

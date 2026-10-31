@@ -9,3 +9,4 @@ dist-out/
 *.keystore
 *.jks
 key.properties
+__pycache__/

@@ -64,15 +64,11 @@
           </div>
           <div id="sim-out" class="sim-results" aria-live="polite" hidden></div>
         </div>
-        <div class="card test" id="evolution-card">
-          <h3>Self-check & Evolution</h3>
-          <p>Continuous self-checks, risk-mitigating circuit breakers, A/B feature rollouts, and rollback controls.</p>
-          <div class="qa-actions">
-            <button id="qa-run" type="button">Run self-check</button>
-            <button id="circuit-trip" type="button" class="btn-warn">Rollback to Safe Baseline</button>
-          </div>
+        <div class="card test" id="selfcheck-card">
+          <h3>Self-check</h3>
+          <p>Checks that this report is internally consistent. It does not test the cable.</p>
+          <button id="qa-run" type="button">Run self-check</button>
           <div id="qa-out" class="qa-results" aria-live="polite" hidden></div>
-          <div id="evolution-out" class="evolution-results"></div>
         </div>
       </div>
     </section>

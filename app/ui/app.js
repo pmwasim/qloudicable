@@ -365,16 +365,14 @@ async function runQaAudit() {
   btn.disabled = true;
   btn.textContent = "Checking…";
   try {
-    const sc = await call("qa_audit");
+    const sc = await call("self_check");
     out.hidden = false;
     out.replaceChildren(
       el("div", { class: "sim-badge-row" },
-        el("span", { class: `badge ${sc.certified ? "ok" : "problem"}` }, sc.certified ? `Self-check: ${sc.passed_checks} of ${sc.total_checks} passed` : `Self-check: ${sc.passed_checks} of ${sc.total_checks} passed (failed)`),
-        el("span", { class: "badge ok" }, `Pass Rate: ${sc.pass_rate_pct.toFixed(1)}%`),
-        el("span", { class: "badge ok" }, `${sc.passed_checks} / ${sc.total_checks} Checks Passed`)
+        el("span", { class: `badge ${sc.passed ? "ok" : "problem"}` }, `${sc.passed_checks} of ${sc.total_checks} checks passed`)
       ),
       el("ul", { class: "findings", style: "margin-top: 10px;" },
-        ...sc.audit_notes.map((n) => el("li", { class: "finding good" }, icon("good"), el("div", {}, el("strong", { textContent: n }))))
+        ...sc.notes.map((n) => el("li", { class: "finding good" }, icon("good"), el("div", {}, el("strong", { textContent: n }))))
       )
     );
   } catch (e) {
@@ -386,47 +384,12 @@ async function runQaAudit() {
   }
 }
 
-async function tripCircuit() {
-  const btn = $("circuit-trip");
-  btn.disabled = true;
-  try {
-    await call("trip_circuit_breaker");
-    await loadEvolutionStatus();
-  } catch (e) {
-    console.error(e);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function loadEvolutionStatus() {
-  const out = $("evolution-out");
-  if (!out) return;
-  try {
-    const evo = await call("evolution_status");
-    const isTripped = evo.circuit_breaker.is_tripped;
-    const flags = Object.values(evo.flags || {});
-    out.replaceChildren(
-      el("div", { class: "sim-badge-row" },
-        el("span", { class: "badge ok" }, `Environment: ${evo.env}`),
-        el("span", { class: `badge ${isTripped ? "problem" : "ok"}` }, isTripped ? "Circuit Breaker: Rollback Active" : "Circuit Breaker: Healthy"),
-        el("span", { class: "badge ok" }, `${flags.length} Managed Flags`)
-      ),
-      grid(flags.map((f) => [f.name, `${f.rollout_pct}% rollout (${f.description})`]))
-    );
-  } catch (e) {
-    out.textContent = `Evolution data unavailable: ${e}`;
-  }
-}
-
 $("refresh").addEventListener("click", refresh);
 $("copy").addEventListener("click", copyReport);
 $("charge-run").addEventListener("click", chargeTest);
 $("write-run").addEventListener("click", writeTest);
 if ($("sim-run")) $("sim-run").addEventListener("click", runSimulation);
 if ($("qa-run")) $("qa-run").addEventListener("click", runQaAudit);
-if ($("circuit-trip")) $("circuit-trip").addEventListener("click", tripCircuit);
-loadEvolutionStatus();
 refresh();
 let pollTimer = setInterval(refresh, 3000);
 document.addEventListener("visibilitychange", () => {

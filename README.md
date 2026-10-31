@@ -4,7 +4,7 @@ USB-C cable diagnostics by qloudihub.com, for Windows, macOS, Android and Ubuntu
 
 **Early release:** not yet tested with an e-marked cable or a charger on any platform, and the Windows app has never been run on Windows. See [docs/STATUS.md](docs/STATUS.md).
 
-Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Current state: [docs/STATUS.md](docs/STATUS.md).
+Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Current state: [docs/STATUS.md](docs/STATUS.md). Releasing and rollback: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Commands
 
@@ -16,8 +16,7 @@ Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Current state: [docs/STA
 - `qloudicable --sentinel [S]`: Monitor connection stability & micro-dropouts for S seconds (default 30)
 - `qloudicable --matrix-test`: Run synthetic hardware scenario simulation matrix
 - `qloudicable --virtual-test [P]`: Simulate a virtual cable against chargers/devices (default: all profiles)
-- `qloudicable --qa-audit`: Execute internal self-check
-- `qloudicable --evolution-status`: Display environment flags, A/B experiments, and circuit breaker
+- `qloudicable --self-check`: Check this report's internal consistency
 - `qloudicable --write-test DIR`: Time a 256 MB write to DIR, then delete the test file
 - `qloudicable --version`: Show version
 - `qloudicable --help`: Show help

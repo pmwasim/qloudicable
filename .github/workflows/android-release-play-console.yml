@@ -30,10 +30,10 @@ jobs:
       - name: Set up Android SDK & NDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK 27+
+      - name: Install NDK and Tauri CLI
         run: |
           sdkmanager --install "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
+          cargo install tauri-cli --version "^2" --locked
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -56,10 +56,10 @@ jobs:
             echo "Configured automated release signing."
           fi
 
-      - name: Build Android Bundle and Symbols
+      - name: Build Android Bundle
         run: |
-          chmod +x scripts/build-android.sh
-          ./scripts/build-android.sh
+          # Google Play refuses a repeated version code.
+          scripts/build-android.sh --config "{\"bundle\":{\"android\":{\"versionCode\":$((2000 + GITHUB_RUN_NUMBER))}}}"
 
       - name: Upload Artifacts to Workflow
         uses: actions/upload-artifact@v4
@@ -69,16 +69,17 @@ jobs:
             dist-out/android/*.aab
             dist-out/android/*.apk
 
-      - name: Upload to Google Play Internal Testing Track
-        if: env.PLAY_CONSOLE_JSON_KEY != ''
+      - name: Upload to Google Play
         env:
           PLAY_CONSOLE_JSON_KEY: ${{ secrets.PLAY_CONSOLE_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ inputs.track }}
         run: |
-          pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          if [ -z "$PLAY_CONSOLE_JSON_KEY" ]; then
+            echo "::warning::PLAY_CONSOLE_SERVICE_ACCOUNT_JSON isn't set, so nothing was uploaded."
+            exit 0
+          fi
+          pip install google-api-python-client google-auth
           echo "$PLAY_CONSOLE_JSON_KEY" > /tmp/pc-key.json
-          AAB_FILE=$(ls dist-out/android/*.aab | head -1)
-          python3 scripts/play-console-automation.py release \
-            --aab "$AAB_FILE" \
-            --track "${{ inputs.track }}" \
-            --creds /tmp/pc-key.json
+          python3 scripts/play-console-automation.py --creds /tmp/pc-key.json --track "$TRACK" \
+            release --aab "$(ls dist-out/android/*.aab | head -1)"
           rm -f /tmp/pc-key.json

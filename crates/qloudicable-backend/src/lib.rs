@@ -23,7 +23,7 @@ pub fn collect() -> Snapshot {
     let mut s = windows::collect();
     #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     let mut s = Snapshot::default();
-    s.tool_version = env!("CARGO_PKG_VERSION").to_string();
+    s.tool_version = qloudicable_core::version_label();
     s
 }
 
