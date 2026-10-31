@@ -1,0 +1,42 @@
+name: Scheduled R&D & Virtual Cable Matrix Audit
+
+on:
+  schedule:
+    # Runs at 03:00 UTC every Sunday (100% free open-source runner budget)
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rd_audit:
+    name: Virtual Cable & Matrix Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Check Formatting & Lints
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run Workspace Unit Tests
+        run: cargo test --all
+
+      - name: Execute Synthetic Hardware R&D Matrix
+        run: cargo run -p qloudicable-cli -- --matrix-test
+
+      - name: Execute Virtual Cable Testing Engine Sweep
+        run: cargo run -p qloudicable-cli -- --virtual-test
+
+      - name: Run Zero-Cost Vendor DB Verification
+        run: python3 scripts/workers/sync-vendor-db.py

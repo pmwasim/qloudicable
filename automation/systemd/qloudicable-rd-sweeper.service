@@ -1,0 +1,8 @@
+[Unit]
+Description=QloudiCable Virtual Cable & R&D Audit Sweeper
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/workspace/projects/WhatCable_qloudihub
+ExecStart=%h/workspace/projects/WhatCable_qloudihub/scripts/workers/virtual-cable-sweeper.sh

@@ -1,0 +1,13 @@
+[Unit]
+Description=QloudiCable USB-C Stability Sentinel Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/workspace/projects/WhatCable_qloudihub/scripts/workers/sentinel-worker.sh
+Restart=on-failure
+RestartSec=10
+Environment=INTERVAL=5
+
+[Install]
+WantedBy=default.target
