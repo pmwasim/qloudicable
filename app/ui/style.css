@@ -139,6 +139,29 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; over
   .badge.problem { background: #2d0e0d; color: #f28b82; border-color: #8c1d18; }
 }
 
+/* QA & Continuous Evolution Styling */
+.qa-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.btn-warn {
+  border-color: #c5221f !important;
+  color: #c5221f !important;
+}
+.btn-warn:hover {
+  background: #fce8e6 !important;
+}
+@media (prefers-color-scheme: dark) {
+  .btn-warn { color: #f28b82 !important; border-color: #f28b82 !important; }
+  .btn-warn:hover { background: #2d0e0d !important; }
+}
+.qa-results, .evolution-results {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.qa-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+
 footer { max-width: 900px; margin: 0 auto; padding: 8px 20px max(32px, env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; }
 @media (max-width: 480px) {
   .brand span { display: none; }

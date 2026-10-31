@@ -1,4 +1,5 @@
 use qloudicable_core::bench::{self, ChargeTest, DataTest};
+use qloudicable_core::evolution::{EvolutionManager, QaScorecard};
 use qloudicable_core::virtual_engine::{
     VirtualCableProfile, VirtualTarget, VirtualTestReport, VirtualTester,
 };
@@ -74,6 +75,25 @@ fn virtual_test(profile: String, target: String) -> Result<VirtualTestReport, St
 }
 
 #[tauri::command]
+fn qa_audit<R: Runtime>(app: AppHandle<R>) -> Result<QaScorecard, String> {
+    let snap = snapshot(&app)?;
+    let rep = diagnose(&snap);
+    Ok(QaScorecard::evaluate(&rep, &snap))
+}
+
+#[tauri::command]
+fn evolution_status() -> EvolutionManager {
+    EvolutionManager::default()
+}
+
+#[tauri::command]
+fn trip_circuit_breaker() -> EvolutionManager {
+    let mut mgr = EvolutionManager::default();
+    mgr.rollback_to_safe_state();
+    mgr
+}
+
+#[tauri::command]
 async fn write_test(dir: String, megabytes: u32) -> Result<DataTest, String> {
     if !(16..=4096).contains(&megabytes) {
         return Err("Test size must be between 16 MB and 4096 MB.".into());
@@ -95,6 +115,9 @@ pub fn run() {
             power_sample,
             charge_result,
             virtual_test,
+            qa_audit,
+            evolution_status,
+            trip_circuit_breaker,
             write_test
         ])
         .run(tauri::generate_context!())

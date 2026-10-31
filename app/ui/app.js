@@ -359,11 +359,74 @@ async function runSimulation() {
   }
 }
 
+async function runQaAudit() {
+  const out = $("qa-out");
+  const btn = $("qa-run");
+  btn.disabled = true;
+  btn.textContent = "Auditing…";
+  try {
+    const sc = await call("qa_audit");
+    out.hidden = false;
+    out.replaceChildren(
+      el("div", { class: "sim-badge-row" },
+        el("span", { class: `badge ${sc.certified ? "ok" : "problem"}` }, sc.certified ? "QA Certified (Pass)" : "QA Failed"),
+        el("span", { class: "badge ok" }, `Pass Rate: ${sc.pass_rate_pct.toFixed(1)}%`),
+        el("span", { class: "badge ok" }, `${sc.passed_checks} / ${sc.total_checks} Checks Passed`)
+      ),
+      el("ul", { class: "findings", style: "margin-top: 10px;" },
+        ...sc.audit_notes.map((n) => el("li", { class: "finding good" }, icon("good"), el("div", {}, el("strong", { textContent: n }))))
+      )
+    );
+  } catch (e) {
+    out.hidden = false;
+    out.replaceChildren(el("p", { class: "detail", textContent: `Audit error: ${e}` }));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run QA Audit";
+  }
+}
+
+async function tripCircuit() {
+  const btn = $("circuit-trip");
+  btn.disabled = true;
+  try {
+    await call("trip_circuit_breaker");
+    await loadEvolutionStatus();
+  } catch (e) {
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function loadEvolutionStatus() {
+  const out = $("evolution-out");
+  if (!out) return;
+  try {
+    const evo = await call("evolution_status");
+    const isTripped = evo.circuit_breaker.is_tripped;
+    const flags = Object.values(evo.flags || {});
+    out.replaceChildren(
+      el("div", { class: "sim-badge-row" },
+        el("span", { class: "badge ok" }, `Environment: ${evo.env}`),
+        el("span", { class: `badge ${isTripped ? "problem" : "ok"}` }, isTripped ? "Circuit Breaker: Rollback Active" : "Circuit Breaker: Healthy"),
+        el("span", { class: "badge ok" }, `${flags.length} Managed Flags`)
+      ),
+      grid(flags.map((f) => [f.name, `${f.rollout_pct}% rollout (${f.description})`]))
+    );
+  } catch (e) {
+    out.textContent = `Evolution data unavailable: ${e}`;
+  }
+}
+
 $("refresh").addEventListener("click", refresh);
 $("copy").addEventListener("click", copyReport);
 $("charge-run").addEventListener("click", chargeTest);
 $("write-run").addEventListener("click", writeTest);
 if ($("sim-run")) $("sim-run").addEventListener("click", runSimulation);
+if ($("qa-run")) $("qa-run").addEventListener("click", runQaAudit);
+if ($("circuit-trip")) $("circuit-trip").addEventListener("click", tripCircuit);
+loadEvolutionStatus();
 refresh();
 let pollTimer = setInterval(refresh, 3000);
 document.addEventListener("visibilitychange", () => {

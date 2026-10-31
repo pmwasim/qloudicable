@@ -3,6 +3,7 @@
 //! all of it is testable on any machine with fixture data.
 pub mod bench;
 pub mod diagnose;
+pub mod evolution;
 pub mod model;
 pub mod pd;
 pub mod render;
