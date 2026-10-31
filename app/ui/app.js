@@ -13,7 +13,7 @@ function el(tag, props = {}, ...kids) {
   for (const [k, v] of Object.entries(props)) {
     if (v === undefined || v === null) continue;
     if (k === "class") node.className = v;
-    else if (k === "role" || k.startsWith("aria-") || k === "data") node.setAttribute(k, v);
+    else if (k === "role" || k.startsWith("aria-") || k.startsWith("data-")) node.setAttribute(k, v);
     else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
     else node[k] = v;
   }
@@ -208,6 +208,7 @@ const Verdict = {
     more.hidden = r.findings.length === 0;
     more.textContent = `Findings (${r.findings.length})`;
     more.onclick = (e) => openSheet("details", e.currentTarget);
+    $("findings").replaceChildren(...findingItems(r.findings));
     drawPath(r);
   },
 };
@@ -251,7 +252,7 @@ const Tiles = {
     const nodes = models.map((m) => {
       let node = existing.get(m.id);
       if (!node) {
-        node = el("button", { type: "button", class: "tile", data: m.id, "aria-controls": "detail" },
+        node = el("button", { type: "button", class: "tile", "data-id": m.id, "aria-controls": "detail" },
           el("span", { class: "tile-title", textContent: m.title }),
           el("strong", { class: "tile-value" }),
           el("span", { class: "tile-sub" }),
@@ -321,12 +322,16 @@ function row(label, value) {
 function findingList(r, tile) {
   const list = findingsFor(r, tile);
   if (!list.length) return null;
-  return el("ul", { class: "findings" }, ...list.map((f) =>
+  return el("ul", { class: "findings" }, ...findingItems(list));
+}
+
+function findingItems(list) {
+  return list.map((f) =>
     el("li", { class: `finding ${f.severity}` },
       el("span", { class: "glyph", "aria-hidden": "true", textContent: SEVERITY_GLYPH[f.severity] }),
       el("div", {},
         el("p", { class: "f-title" }, el("span", { class: "sr-only", textContent: `${SEVERITY_WORD[f.severity]}: ` }), f.title),
-        el("p", { class: "f-detail", textContent: f.detail })))));
+        el("p", { class: "f-detail", textContent: f.detail }))));
 }
 
 function detailFor(id, r, state) {
