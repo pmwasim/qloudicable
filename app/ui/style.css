@@ -229,3 +229,14 @@ details.more code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, mo
 
 /* Hide empty chart slots until a test draws into them */
 .viz:empty { display: none; }
+
+/* Audit fixes: plain labels, glossary, updated time, tab cue */
+.updated { font-size: 13px; margin-top: 8px; }
+.legend, .glossary { margin-top: 12px; font-size: 14px; color: var(--muted); }
+.legend summary, .glossary summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--ink-2); }
+.glossary dl { display: grid; grid-template-columns: minmax(120px, auto) 1fr; gap: 8px 16px; margin: 8px 0 0; }
+.glossary dt { font-weight: 600; color: var(--ink); }
+.glossary dd { margin: 0; }
+@media (max-width: 640px) {
+  .tablist { mask-image: linear-gradient(to right, #000 86%, transparent); -webkit-mask-image: linear-gradient(to right, #000 86%, transparent); padding-right: 28px; }
+}

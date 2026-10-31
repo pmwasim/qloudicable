@@ -20,7 +20,7 @@
     </div>
     <div class="top-actions">
       <button id="copy" type="button" class="btn ghost">Copy summary</button>
-      <button id="refresh" type="button" class="btn">Refresh</button>
+      <button id="refresh" type="button" class="btn">Check again</button>
     </div>
   </header>
 
@@ -34,10 +34,17 @@
       <button id="hero-action" type="button" class="btn primary" hidden></button>
     </section>
 
+    <p id="updated" class="updated muted"></p>
     <section id="findings-box" aria-labelledby="findings-title" hidden>
       <h2 id="findings-title" class="eyebrow">What we found</h2>
       <ul id="findings" class="findings"></ul>
+      <details class="legend"><summary>Where do these results come from?</summary><p>Reported: the hardware said so. Measured: QloudiCable timed or metered it. Worked out: calculated from the USB specification.</p></details>
       <button id="findings-more" type="button" class="btn link" hidden></button>
+    </section>
+
+    <section id="power-box" aria-labelledby="power-title">
+      <h2 id="power-title" class="eyebrow">Power right now</h2>
+      <div id="power" class="card"></div>
     </section>
 
     <section aria-labelledby="ports-title">
@@ -45,10 +52,6 @@
       <div id="ports" class="grid"></div>
     </section>
 
-    <section id="power-box" aria-labelledby="power-title">
-      <h2 id="power-title" class="eyebrow">Power right now</h2>
-      <div id="power" class="card"></div>
-    </section>
 
     <section class="tools" aria-labelledby="tools-title">
       <h2 id="tools-title" class="eyebrow">Tests</h2>
@@ -111,6 +114,17 @@
       <h2 id="access-title" class="eyebrow">What this device can show</h2>
       <div id="access" class="card list"></div>
     </section>
+
+    <details class="glossary">
+      <summary>Words used on this page</summary>
+      <dl>
+        <dt>E-marker</dt><dd>A small chip inside some cables that states what the cable can carry.</dd>
+        <dt>Charger offers</dt><dd>The voltage and power levels a charger says it can supply.</dd>
+        <dt>Contract</dt><dd>The voltage and current the charger and device agreed on.</dd>
+        <dt>Port watch</dt><dd>Checks whether a port keeps dropping and reconnecting.</dd>
+        <dt>Both ends</dt><dd>Tests each plug of a cable in both positions.</dd>
+      </dl>
+    </details>
 
     <details class="diagnostics">
       <summary>Diagnostics</summary>

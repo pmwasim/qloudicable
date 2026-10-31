@@ -45,6 +45,7 @@ const EVIDENCE = {
   measured: "Measured",
   inferred: "Worked out from the USB spec",
 };
+const TRANSPORT = { USB2: "USB 2.0", USB3: "USB 3", USB: "USB", DP: "DisplayPort", DisplayPort: "DisplayPort", TB3: "Thunderbolt 3", TB4: "Thunderbolt 4", Thunderbolt: "Thunderbolt" };
 const ACCESS_WORD = { full: "Yes", partial: "Partly", none: "No" };
 
 let report = null;
@@ -129,8 +130,14 @@ function renderHero(r) {
 
 // ---- Findings: top three, then "show all"
 
+function heroCovers(r) {
+  const w = r.findings[0];
+  return !!w && (w.severity === "warn" || w.severity === "problem");
+}
+
 function renderFindings(r) {
-  const list = r.findings;
+  // The hero already states the most important finding, so do not repeat it.
+  const list = heroCovers(r) ? r.findings.slice(1) : r.findings;
   $("findings-box").hidden = list.length === 0;
   const shown = showAllFindings ? list : list.slice(0, 3);
   $("findings").replaceChildren(
@@ -148,8 +155,7 @@ function renderFindings(r) {
             el("span", { class: "sr-only", textContent: `${SEVERITY_WORD[f.severity]}: ` }),
             f.title
           ),
-          el("p", { class: "f-detail", textContent: f.detail }),
-          el("span", { class: "tag", textContent: EVIDENCE[f.evidence] })
+          el("p", { class: "f-detail", textContent: f.detail })
         )
       )
     )
@@ -195,7 +201,8 @@ function portCard(p, identity) {
   if (p.partner && (p.partner.kind || p.partner.vendor_name)) {
     facts.push(["Connected to", [p.partner.vendor_name, p.partner.kind].filter(Boolean).join(", ")]);
   }
-  if (p.transports.length) facts.push(["In use", p.transports.join(", ")]);
+  const links = p.transports.filter((t) => t !== "CC").map((t) => TRANSPORT[t] || t);
+  if (links.length) facts.push(["Data", links.join(", ")]);
   card.append(grid(facts));
 
   if (p.source_pdos.length) {
@@ -217,9 +224,9 @@ function portCard(p, identity) {
   }
 
   const raw = [
-    ["Data role", p.data_role],
-    ["Power role", p.power_role],
-    ["Plug side", p.orientation],
+    ["Data direction", p.data_role ? ({ host: "Host (this computer)", device: "Device" }[p.data_role] || p.data_role) : null],
+    ["Power direction", p.power_role ? ({ source: "Gives power", sink: "Takes power" }[p.power_role] || p.power_role) : null],
+    ["Plug orientation", p.orientation],
   ];
   const more = el("details", { class: "more" }, el("summary", { textContent: "More about this port" }), grid(raw));
   if (p.cable) {
@@ -259,7 +266,7 @@ function renderPower(s) {
         el("div", { class: "stat" }, el("span", { class: "stat-value", textContent: value }), el("span", { class: "stat-label", textContent: label }))
       )
     ),
-    el("p", { class: "muted", textContent: `Source: ${p.source}` })
+    el("p", { class: "muted", textContent: /battery/i.test(p.source) ? "Read from the battery" : `Read from ${p.source}` })
   );
 }
 
@@ -472,6 +479,7 @@ async function refresh() {
   try {
     const r = await call("report");
     $("error").hidden = true;
+    $("updated").textContent = `Checked at ${new Date().toLocaleTimeString()}`;
     const text = JSON.stringify(r);
     if (text !== lastJson) {
       // Redraw only on change, so open details and focus stay put.
