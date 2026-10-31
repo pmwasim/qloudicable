@@ -7,11 +7,6 @@ on:
         description: 'Google Play Track (internal, alpha, beta, production)'
         required: true
         default: 'internal'
-      upload_symbols:
-        description: 'Upload native debug symbols (.zip)'
-        required: true
-        type: boolean
-        default: true
 
 jobs:
   build-and-deploy:
@@ -73,7 +68,6 @@ jobs:
           path: |
             dist-out/android/*.aab
             dist-out/android/*.apk
-            dist-out/android/native-debug-symbols.zip
 
       - name: Upload to Google Play Internal Testing Track
         if: env.PLAY_CONSOLE_JSON_KEY != ''
@@ -83,13 +77,8 @@ jobs:
           pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
           echo "$PLAY_CONSOLE_JSON_KEY" > /tmp/pc-key.json
           AAB_FILE=$(ls dist-out/android/*.aab | head -1)
-          SYM_FLAG=""
-          if [ -f "dist-out/android/native-debug-symbols.zip" ] && [ "${{ inputs.upload_symbols }}" = "true" ]; then
-            SYM_FLAG="--symbols dist-out/android/native-debug-symbols.zip"
-          fi
           python3 scripts/play-console-automation.py release \
             --aab "$AAB_FILE" \
-            $SYM_FLAG \
             --track "${{ inputs.track }}" \
             --creds /tmp/pc-key.json
           rm -f /tmp/pc-key.json

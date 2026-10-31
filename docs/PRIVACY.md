@@ -13,7 +13,7 @@ QloudiCable does not collect, record, track, transmit, or share any personal dat
 All cable diagnostic evaluations, USB Power Delivery contract inspections, link speed measurements, and battery statistics are executed entirely on your local device using standard operating system hardware APIs. No diagnostic data is ever transmitted over the internet or uploaded to any remote server.
 
 ## 3. Network Permissions
-The application does not require or request internet permissions for its core diagnostic functionality. Any local network references are strictly confined to internal IPC between the user interface and the local backend process.
+Release builds of the Android app declare no internet permission, and the app makes no network connections on any platform.
 
 ## 4. Contact
 If you have any questions or inquiries regarding this privacy policy, please contact:

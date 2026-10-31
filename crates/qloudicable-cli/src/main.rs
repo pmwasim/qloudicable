@@ -20,7 +20,7 @@ USAGE:
   qloudicable --sentinel [S]      Monitor connection stability & micro-dropouts for S seconds (default 30)
   qloudicable --matrix-test       Run synthetic hardware scenario simulation matrix
   qloudicable --virtual-test [P]  Simulate a virtual cable against chargers/devices (default: all profiles)
-  qloudicable --qa-audit          Execute continuous quality control & assurance certification
+  qloudicable --qa-audit          Execute internal self-check
   qloudicable --evolution-status  Display environment flags, A/B experiments, and circuit breaker
   qloudicable --write-test DIR    Time a 256 MB write to DIR, then delete the test file
   qloudicable --version
@@ -356,17 +356,23 @@ fn qa_audit() -> i32 {
     let rep = diagnose(&snap);
     let scorecard = QaScorecard::evaluate(&rep, &snap);
 
-    println!("=== QloudiCable Quality Assurance & Control Audit ===");
+    println!("=== QloudiCable Self-Check ===");
     println!("Platform       : {:?}", snap.platform);
     println!("Total Checks   : {}", scorecard.total_checks);
     println!("Passed Checks  : {}", scorecard.passed_checks);
     println!("Pass Rate      : {:.1}%", scorecard.pass_rate_pct);
     println!(
-        "Certification  : {}",
+        "Self-check     : {}",
         if scorecard.certified {
-            "PASSED (CERTIFIED)"
+            format!(
+                "{} of {} passed",
+                scorecard.passed_checks, scorecard.total_checks
+            )
         } else {
-            "FAILED (ACTION REQUIRED)"
+            format!(
+                "FAILED ({} of {} passed)",
+                scorecard.passed_checks, scorecard.total_checks
+            )
         }
     );
     println!("\nVerification Audit Log:");

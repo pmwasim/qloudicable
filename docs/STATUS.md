@@ -6,8 +6,8 @@ Build scripts put installers in `dist-out/`, which is gitignored.
 | --- | --- | --- | --- |
 | Ubuntu | Yes: .deb, AppImage, CLI | Yes: app and CLI on one desktop PC | No: that PC has no typec ports |
 | Windows | Yes: NSIS installer, CLI | CLI under Wine only; installer and app not run | No |
-| macOS | Yes: GitHub Actions (`.github/workflows/macos.yml`) | CLI on an Apple silicon MacBook and a CI runner; app not opened | Partly: phone over USB-C, no e-marked cable or charger |
-| Android | Yes: unsigned release APK for 4 ABIs | x86_64 emulator only (API 35); no phone | No |
+| macOS | Yes: GitHub Actions (`.github/workflows/macos.yml`) | App launched and CLI run on an Apple silicon MacBook, plus a CI runner | Partly: phone over USB-C, no e-marked cable or charger |
+| Android | Yes: signed release APK and AAB; internal-testing upload to Google Play | x86_64 emulator only (API 35); no phone | No |
 
 Logic is tested with fixtures built from the kernel ABI and PD tables, not captures from
 real hardware. Rust type-checks: CLI for macOS; both for Windows.
@@ -46,7 +46,17 @@ On an Apple silicon MacBook with a phone attached over USB-C, the CLI found the 
 phone, and its battery values and the absence of a cable chip matched `ioreg`. Not verified: opening
 the app, an e-marked cable, a charger's power profiles, and MagSafe. USB devices are mapped to physical ports via locationID and controller topology on Apple Silicon, allowing data-speed findings to evaluate cable bottlenecks.
 
+## Added but unverified on real hardware
+macOS USB device to port matching, `--resistance`, `--sentinel`, 140 W EPR decoding.
+
+The virtual cable sandbox and `--matrix-test` results are simulated and say nothing about a real
+cable. `--qa-audit` is an internal self-check of the report's consistency, not a test of a cable.
+
+## Known gap
+Android bundles carry no native debug symbols, so Google Play shows an advisory warning and native
+crash reports aren't symbolised.
+
 ## Before shipping
 1. Run Android on a real phone, with the battery below 80% and a known charger.
-3. Run every platform with real cables: an e-marked one, an unmarked one, a charger.
-4. Sign: Windows code-signing certificate, Apple Developer ID, Android release keystore.
+2. Run every platform with real cables: an e-marked one, an unmarked one, a charger.
+3. Sign: Windows code-signing certificate, Apple Developer ID.

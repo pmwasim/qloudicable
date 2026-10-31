@@ -4,7 +4,7 @@
 //! 1. Environment profiles (Development, Staging, Production, Sandbox/Canary)
 //! 2. Deterministic Feature Flags and A/B Variant Testing
 //! 3. Diagnostic Risk Mitigation & Automated Circuit Breaking
-//! 4. Continuous Quality Assurance (QA scorecards, synthetic health audits)
+//! 4. Continuous self-check (QA scorecards, synthetic health audits)
 //! 5. Transactional Rollback & Fallback State Guards
 
 use crate::diagnose::Report;
@@ -148,7 +148,7 @@ impl CircuitBreaker {
     }
 }
 
-/// Quality Assurance (QA) Scorecard verifying diagnosis accuracy, stability, and protocol bounds.
+/// Self-check (QA) Scorecard verifying diagnosis accuracy, stability, and protocol bounds.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QaScorecard {
     pub total_checks: u32,

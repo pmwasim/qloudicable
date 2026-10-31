@@ -2,10 +2,27 @@
 
 USB-C cable diagnostics by qloudihub.com, for Windows, macOS, Android and Ubuntu.
 
-**Early release:** QloudiCable has not yet been tested with real USB-C cables on any platform, and
-the macOS build is untested. See [docs/STATUS.md](docs/STATUS.md).
+**Early release:** not yet tested with an e-marked cable or a charger on any platform, and the Windows app has never been run on Windows. See [docs/STATUS.md](docs/STATUS.md).
 
 Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Current state: [docs/STATUS.md](docs/STATUS.md).
+
+## Commands
+
+- `qloudicable`: Report on every port and device
+- `qloudicable --json`: Same report as JSON
+- `qloudicable --watch`: Reprint whenever the report changes (Ctrl+C to stop)
+- `qloudicable --charge-test [S]`: Sample charging power for S seconds (default 30)
+- `qloudicable --resistance [S]`: Sample dynamic load steps to estimate loop resistance (default 15)
+- `qloudicable --sentinel [S]`: Monitor connection stability & micro-dropouts for S seconds (default 30)
+- `qloudicable --matrix-test`: Run synthetic hardware scenario simulation matrix
+- `qloudicable --virtual-test [P]`: Simulate a virtual cable against chargers/devices (default: all profiles)
+- `qloudicable --qa-audit`: Execute internal self-check
+- `qloudicable --evolution-status`: Display environment flags, A/B experiments, and circuit breaker
+- `qloudicable --write-test DIR`: Time a 256 MB write to DIR, then delete the test file
+- `qloudicable --version`: Show version
+- `qloudicable --help`: Show help
+
+Note: `--matrix-test` and `--virtual-test` use simulated cables, not real ones.
 
 ## Develop
 

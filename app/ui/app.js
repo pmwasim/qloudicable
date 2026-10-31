@@ -363,13 +363,13 @@ async function runQaAudit() {
   const out = $("qa-out");
   const btn = $("qa-run");
   btn.disabled = true;
-  btn.textContent = "Auditing…";
+  btn.textContent = "Checking…";
   try {
     const sc = await call("qa_audit");
     out.hidden = false;
     out.replaceChildren(
       el("div", { class: "sim-badge-row" },
-        el("span", { class: `badge ${sc.certified ? "ok" : "problem"}` }, sc.certified ? "QA Certified (Pass)" : "QA Failed"),
+        el("span", { class: `badge ${sc.certified ? "ok" : "problem"}` }, sc.certified ? `Self-check: ${sc.passed_checks} of ${sc.total_checks} passed` : `Self-check: ${sc.passed_checks} of ${sc.total_checks} passed (failed)`),
         el("span", { class: "badge ok" }, `Pass Rate: ${sc.pass_rate_pct.toFixed(1)}%`),
         el("span", { class: "badge ok" }, `${sc.passed_checks} / ${sc.total_checks} Checks Passed`)
       ),
@@ -379,10 +379,10 @@ async function runQaAudit() {
     );
   } catch (e) {
     out.hidden = false;
-    out.replaceChildren(el("p", { class: "detail", textContent: `Audit error: ${e}` }));
+    out.replaceChildren(el("p", { class: "detail", textContent: `Self-check error: ${e}` }));
   } finally {
     btn.disabled = false;
-    btn.textContent = "Run QA Audit";
+    btn.textContent = "Run self-check";
   }
 }
 
