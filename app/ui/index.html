@@ -23,7 +23,7 @@
     <section id="power-box"><h2>Power right now</h2><div id="power" class="card"></div></section>
     <section id="devices-box"><h2>USB devices</h2><div id="devices" class="card list"></div></section>
     <section>
-      <h2>Tests</h2>
+      <h2>Tests & Simulation</h2>
       <div class="cards">
         <div class="card test">
           <h3>Charge test</h3>
@@ -36,6 +36,33 @@
           <p>Writes a 256 MB temporary file to a folder you pick on a USB drive, times it, then deletes it. Nothing else on the drive is touched.</p>
           <button id="write-run" type="button">Choose folder and start</button>
           <p id="write-out" class="out" aria-live="polite"></p>
+        </div>
+        <div class="card test" id="sim-card">
+          <h3>Virtual Cable Sandbox</h3>
+          <p>Simulate USB-C cable profiles and devices offline. Test bottlenecks, contact resistance, and thermal dissipation.</p>
+          <div class="sim-controls">
+            <label for="sim-profile">Cable profile
+              <select id="sim-profile" class="sim-select">
+                <option value="apple_woven_epr_240w">Apple Woven EPR 240W (USB 2.0, 5A EPR)</option>
+                <option value="usb4_gen3x2_40gbps_240w">USB4 Gen 3x2 40Gbps 240W</option>
+                <option value="usb3_gen2_10gbps_100w">USB 3.2 Gen 2 (10Gbps, 100W)</option>
+                <option value="usb2_charging_60w">USB 2.0 Charge Cable (60W 3A)</option>
+                <option value="counterfeit_or_damaged">Counterfeit / Damaged (High R, Drops)</option>
+                <option value="unmarked_passive">Unmarked Passive (No E-Marker)</option>
+              </select>
+            </label>
+            <label for="sim-target">Device target
+              <select id="sim-target" class="sim-select">
+                <option value="charger_140w">140W GaN Fast Charger</option>
+                <option value="charger_65w">65W Compact Charger</option>
+                <option value="nvme_storage_10gbps">10 Gbps NVMe SSD Enclosure</option>
+                <option value="display_4k">4K Display (DisplayPort Alt Mode)</option>
+                <option value="legacy_device">Standard Peripheral (Mouse / Keyboard)</option>
+              </select>
+            </label>
+            <button id="sim-run" type="button">Simulate cable</button>
+          </div>
+          <div id="sim-out" class="sim-results" aria-live="polite" hidden></div>
         </div>
       </div>
     </section>

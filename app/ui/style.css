@@ -98,6 +98,47 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; over
 .row .val { white-space: nowrap; font-weight: 600; font-size: 14px; text-align: right; }
 .big { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
 .out { margin: 12px 0 0 !important; color: var(--ink) !important; font-weight: 600; min-height: 1px; }
+
+/* Simulation & Metrics UI */
+.sim-controls { display: grid; gap: 10px; margin: 12px 0; }
+.sim-controls label { font-size: 13px; font-weight: 600; color: var(--muted); display: grid; gap: 4px; }
+.sim-select {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.sim-results {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.sim-badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.badge.ok { background: #e6f4ea; color: #137333; border-color: #ceead6; }
+.badge.warn { background: #fef7e0; color: #b06000; border-color: #feefc3; }
+.badge.problem { background: #fce8e6; color: #c5221f; border-color: #fad2cf; }
+@media (prefers-color-scheme: dark) {
+  .badge.ok { background: #072711; color: #81c995; border-color: #137333; }
+  .badge.warn { background: #2b1d00; color: #fdd663; border-color: #7b4f00; }
+  .badge.problem { background: #2d0e0d; color: #f28b82; border-color: #8c1d18; }
+}
+
 footer { max-width: 900px; margin: 0 auto; padding: 8px 20px max(32px, env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; }
 @media (max-width: 480px) {
   .brand span { display: none; }

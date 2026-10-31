@@ -62,6 +62,34 @@
         const w = args.watts;
         return { samples: w.length, avg_w: w[0], min_w: w[0], max_w: w[0], stability: "steady", summary: `Steady at about ${w[0].toFixed(1)} W with no dropouts.` };
       }
+      if (cmd === "virtual_test") {
+        const p = args.profile;
+        const isDamaged = p === "counterfeit_or_damaged";
+        const is240w = p === "apple_woven_epr_240w" || p === "usb4_gen3x2_40gbps_240w";
+        return {
+          profile: p,
+          target: args.target,
+          negotiated_watts: isDamaged ? 15 : is240w ? 140 : 60,
+          negotiated_mbps: p === "usb4_gen3x2_40gbps_240w" ? 40000 : p === "usb3_gen2_10gbps_100w" ? 10000 : 480,
+          cable_is_power_bottleneck: !is240w && args.target === "charger_140w",
+          cable_is_data_bottleneck: p === "apple_woven_epr_240w" && args.target === "nvme_storage_10gbps",
+          estimated_loop_resistance: {
+            milliohms: isDamaged ? 480 : 105,
+            confidence: 0.95,
+            rating: isDamaged ? "High" : "Nominal",
+            note: isDamaged ? "Excessive contact resistance detected." : "Optimal USB-IF loop resistance."
+          },
+          thermal_dissipation_watts: isDamaged ? 3.4 : 0.8,
+          thermal_risk: isDamaged,
+          stability_score: isDamaged ? 45 : 100,
+          stability_verdict: isDamaged ? "Degraded" : "RockSolid",
+          report: {
+            tool_version: "demo",
+            platform: "demo",
+            findings: []
+          }
+        };
+      }
       if (cmd === "write_test") return { summary: "Wrote at 1840 Mbps." };
       throw new Error("unknown command");
     },

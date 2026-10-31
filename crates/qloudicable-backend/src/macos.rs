@@ -120,10 +120,10 @@ unsafe fn convert(v: CFTypeRef) -> Option<Value> {
             CFDictionaryGetKeysAndValues(v as _, keys.as_mut_ptr(), vals.as_mut_ptr());
             let mut out = Vec::with_capacity(n);
             for (k, val) in keys.into_iter().zip(vals) {
-                if CFGetTypeID(k) == CFStringGetTypeID() {
-                    if let Some(c) = convert(val) {
-                        out.push((CFString::wrap_under_get_rule(k as _).to_string(), c));
-                    }
+                if CFGetTypeID(k) == CFStringGetTypeID()
+                    && let Some(c) = convert(val)
+                {
+                    out.push((CFString::wrap_under_get_rule(k as _).to_string(), c));
                 }
             }
             Some(Value::Dict(out))
@@ -215,10 +215,10 @@ pub fn collect() -> Snapshot {
         .flat_map(|c| services(c, &PORT_KEYS))
         .enumerate()
     {
-        if let Some(p) = parse_port(&v, i) {
-            if !ports.iter().any(|known| known.id == p.id) {
-                ports.push(p);
-            }
+        if let Some(p) = parse_port(&v, i)
+            && !ports.iter().any(|known| known.id == p.id)
+        {
+            ports.push(p);
         }
     }
     ports.sort_by(|a, b| a.label.cmp(&b.label));

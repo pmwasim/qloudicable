@@ -1,4 +1,7 @@
 use qloudicable_core::bench::{self, ChargeTest, DataTest};
+use qloudicable_core::virtual_engine::{
+    VirtualCableProfile, VirtualTarget, VirtualTestReport, VirtualTester,
+};
 use qloudicable_core::{Report, Snapshot, diagnose};
 use std::path::PathBuf;
 use tauri::{AppHandle, Runtime};
@@ -44,6 +47,33 @@ fn charge_result(watts: Vec<f64>) -> ChargeTest {
 }
 
 #[tauri::command]
+fn virtual_test(profile: String, target: String) -> Result<VirtualTestReport, String> {
+    let prof = match profile.as_str() {
+        "apple_woven_epr_240w" => VirtualCableProfile::AppleWovenEpr240W,
+        "usb4_gen3x2_40gbps_240w" => VirtualCableProfile::Usb4Gen3x2_40Gbps_240W,
+        "usb3_gen2_10gbps_100w" => VirtualCableProfile::Usb3Gen2_10Gbps_100W,
+        "usb2_charging_60w" => VirtualCableProfile::Usb2Charging60W,
+        "thunderbolt4_40gbps" => VirtualCableProfile::Thunderbolt4_40Gbps,
+        "counterfeit_or_damaged" => VirtualCableProfile::CounterfeitOrDamaged,
+        "unmarked_passive" => VirtualCableProfile::UnmarkedPassive,
+        other => return Err(format!("Unknown profile: {other}")),
+    };
+
+    let tgt = match target.as_str() {
+        "charger_140w" => VirtualTarget::Charger { max_watts: 140 },
+        "charger_65w" => VirtualTarget::Charger { max_watts: 65 },
+        "nvme_storage_10gbps" => VirtualTarget::HighSpeedStorage {
+            capable_mbps: 10_000,
+        },
+        "display_4k" => VirtualTarget::HighResolutionDisplay { bandwidth_gbps: 20 },
+        "legacy_device" => VirtualTarget::LegacyPeripheral,
+        other => return Err(format!("Unknown target: {other}")),
+    };
+
+    Ok(VirtualTester::evaluate(&prof, &tgt))
+}
+
+#[tauri::command]
 async fn write_test(dir: String, megabytes: u32) -> Result<DataTest, String> {
     if !(16..=4096).contains(&megabytes) {
         return Err("Test size must be between 16 MB and 4096 MB.".into());
@@ -64,6 +94,7 @@ pub fn run() {
             report,
             power_sample,
             charge_result,
+            virtual_test,
             write_test
         ])
         .run(tauri::generate_context!())

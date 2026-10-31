@@ -321,10 +321,49 @@ async function writeTest() {
   }
 }
 
+async function runSimulation() {
+  const profile = $("sim-profile").value;
+  const target = $("sim-target").value;
+  const out = $("sim-out");
+  const btn = $("sim-run");
+  btn.disabled = true;
+  btn.textContent = "Simulating…";
+  try {
+    const res = await call("virtual_test", { profile, target });
+    out.hidden = false;
+    const powerBottleneck = res.cable_is_power_bottleneck ? "Bottleneck: Cable limits charging" : "Power passed";
+    const dataBottleneck = res.cable_is_data_bottleneck ? "Bottleneck: Cable limits data speed" : "Data speed maxed";
+    const resRating = res.estimated_loop_resistance.rating.toLowerCase();
+    const stabRating = res.stability_verdict.toLowerCase();
+
+    out.replaceChildren(
+      el("div", { class: "sim-badge-row" },
+        el("span", { class: `badge ${res.cable_is_power_bottleneck ? "warn" : "ok"}` }, powerBottleneck),
+        el("span", { class: `badge ${res.cable_is_data_bottleneck ? "warn" : "ok"}` }, dataBottleneck),
+        el("span", { class: `badge ${res.thermal_risk ? "problem" : "ok"}` }, `Thermal: ${res.thermal_dissipation_watts.toFixed(2)} W loss`),
+        el("span", { class: `badge ${stabRating.includes("solid") ? "ok" : "warn"}` }, `Stability: ${res.stability_score}% (${res.stability_verdict})`)
+      ),
+      grid([
+        ["Negotiated Power", res.negotiated_watts ? `${res.negotiated_watts} W` : "None"],
+        ["Negotiated Link", res.negotiated_mbps ? speedWords(res.negotiated_mbps) : "None"],
+        ["Loop Resistance (R_loop)", `${res.estimated_loop_resistance.milliohms} mΩ (${res.estimated_loop_resistance.rating})`],
+        ["Analysis Note", res.estimated_loop_resistance.note]
+      ])
+    );
+  } catch (e) {
+    out.hidden = false;
+    out.replaceChildren(el("p", { class: "detail", textContent: `Simulation failed: ${e}` }));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Simulate cable";
+  }
+}
+
 $("refresh").addEventListener("click", refresh);
 $("copy").addEventListener("click", copyReport);
 $("charge-run").addEventListener("click", chargeTest);
 $("write-run").addEventListener("click", writeTest);
+if ($("sim-run")) $("sim-run").addEventListener("click", runSimulation);
 refresh();
 let pollTimer = setInterval(refresh, 3000);
 document.addEventListener("visibilitychange", () => {
