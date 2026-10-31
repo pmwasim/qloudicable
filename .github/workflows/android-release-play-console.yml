@@ -27,13 +27,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK & NDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install NDK and Tauri CLI
-        run: |
-          sdkmanager --install "ndk;27.0.12077973"
-          cargo install tauri-cli --version "^2" --locked
+      # GitHub's runners already include the Android SDK and NDK.
+      - name: Install the Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

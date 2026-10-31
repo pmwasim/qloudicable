@@ -114,11 +114,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
-      - name: Install the NDK and Tauri CLI
-        run: |
-          sdkmanager --install "ndk;27.0.12077973"
-          cargo install tauri-cli --version "^2" --locked
+      # GitHub's runners already include the Android SDK and NDK.
+      - name: Install the Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
       - name: Set up signing, when configured
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}

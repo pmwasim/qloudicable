@@ -1,7 +1,8 @@
 //! Reads the operating system. Each platform module fills the same `Snapshot`, and
 //! says through `Capabilities` what that OS keeps hidden.
 pub mod android;
-#[cfg(any(target_os = "linux", target_os = "android", test))]
+// Test fixtures use file names with colons, as sysfs does, which Windows refuses.
+#[cfg(any(target_os = "linux", target_os = "android", all(test, unix)))]
 pub mod linux;
 #[cfg(target_os = "macos")]
 pub mod macos;
