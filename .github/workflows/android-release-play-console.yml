@@ -1,0 +1,95 @@
+name: Android Release & Play Console Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Google Play Track (internal, alpha, beta, production)'
+        required: true
+        default: 'internal'
+      upload_symbols:
+        description: 'Upload native debug symbols (.zip)'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK 27+
+        run: |
+          sdkmanager --install "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install System Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Decode Android Keystore & Properties (if configured)
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > app/src-tauri/gen/android/app/release.keystore
+            echo "$KEY_PROPERTIES" > app/src-tauri/gen/android/key.properties
+            echo "Configured automated release signing."
+          fi
+
+      - name: Build Android Bundle and Symbols
+        run: |
+          chmod +x scripts/build-android.sh
+          ./scripts/build-android.sh
+
+      - name: Upload Artifacts to Workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-artifacts
+          path: |
+            dist-out/android/*.aab
+            dist-out/android/*.apk
+            dist-out/android/native-debug-symbols.zip
+
+      - name: Upload to Google Play Internal Testing Track
+        if: env.PLAY_CONSOLE_JSON_KEY != ''
+        env:
+          PLAY_CONSOLE_JSON_KEY: ${{ secrets.PLAY_CONSOLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          echo "$PLAY_CONSOLE_JSON_KEY" > /tmp/pc-key.json
+          AAB_FILE=$(ls dist-out/android/*.aab | head -1)
+          SYM_FLAG=""
+          if [ -f "dist-out/android/native-debug-symbols.zip" ] && [ "${{ inputs.upload_symbols }}" = "true" ]; then
+            SYM_FLAG="--symbols dist-out/android/native-debug-symbols.zip"
+          fi
+          python3 scripts/play-console-automation.py release \
+            --aab "$AAB_FILE" \
+            $SYM_FLAG \
+            --track "${{ inputs.track }}" \
+            --creds /tmp/pc-key.json
+          rm -f /tmp/pc-key.json

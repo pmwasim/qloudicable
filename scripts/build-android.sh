@@ -14,4 +14,13 @@ kind=release
 case " $* " in *" --debug "*) kind=debug ;; esac
 find app/src-tauri/gen/android/app/build/outputs/apk -path "*/$kind/*" -name '*.apk' -exec cp {} dist-out/android/ \;
 find app/src-tauri/gen/android/app/build/outputs/bundle -iname "*${kind}*" -name '*.aab' -exec cp {} dist-out/android/ \;
+
+# Export and archive native debug symbols for Google Play Console crash/ANR analysis
+sym_dir="app/src-tauri/gen/android/app/build/intermediates/merged_native_libs/${kind}/merge${kind^}NativeLibs/out/lib"
+if [ -d "$sym_dir" ]; then
+    echo "Archiving native debug symbols for Play Console..."
+    (cd "$sym_dir" && zip -r -q "$OLDPWD/dist-out/android/native-debug-symbols.zip" .)
+    echo "Generated dist-out/android/native-debug-symbols.zip"
+fi
+
 ls -lh dist-out/android
