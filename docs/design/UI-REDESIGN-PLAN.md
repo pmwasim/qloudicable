@@ -64,4 +64,4 @@ step chips, matrix cells, empty state.
 - Feature ids unchanged so features.js still works.
 
 ## Out of scope
-Paid edition features, internal sandbox, new Rust logic.
+Features not in this release, and any new Rust logic.
