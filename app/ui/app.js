@@ -1,5 +1,4 @@
-// QloudiCable front end. The Rust core decides every result. This file only shows
-// the result in plain words, and never invents a verdict of its own.
+// QloudiCable front end. The Rust core decides every result; this file shows it.
 const $ = (id) => document.getElementById(id);
 
 function el(tag, props = {}, ...kids) {
@@ -12,6 +11,19 @@ function el(tag, props = {}, ...kids) {
   for (const kid of kids) if (kid !== null && kid !== undefined) node.append(kid);
   return node;
 }
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs = {}, ...kids) => {
+  const n = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  for (const kid of kids) if (kid) n.append(kid);
+  return n;
+};
+const svgText = (attrs, text) => {
+  const t = svgEl("text", attrs);
+  t.textContent = text;
+  return t;
+};
 
 const tauri = window.__TAURI__;
 const call = (cmd, args) =>
@@ -30,31 +42,23 @@ const CABLE_SPEED = {
   usb80g: "80 Gbps",
   reserved: "speed not stated",
 };
-const CABLE_KIND = { passive: "Passive", active: "Active", vpd: "Powered device", unknown: "Unknown" };
-const CHARGE_STATE = {
-  charging: "Charging",
-  discharging: "On battery",
-  full: "Battery full",
-  not_charging: "Plugged in, not charging",
-  unknown: "Unknown",
-};
+const CABLE_MBPS = { usb2: 480, usb5g: 5000, usb20g: 20000, usb40g: 40000, usb80g: 80000 };
+const TRANSPORT = { USB2: "USB 2.0", USB3: "USB 3", USB: "USB", DP: "DisplayPort", DisplayPort: "DisplayPort", TB3: "Thunderbolt 3", TB4: "Thunderbolt 4", Thunderbolt: "Thunderbolt" };
+const CHARGE_STATE = { charging: "Charging", discharging: "On battery", full: "Battery full", not_charging: "Plugged in, not charging", unknown: "Unknown" };
 const SEVERITY_WORD = { good: "Good", info: "Note", warn: "Check", problem: "Problem" };
 const SEVERITY_GLYPH = { good: "✓", info: "i", warn: "!", problem: "✕" };
-const EVIDENCE = {
-  reported: "Reported by the hardware",
-  measured: "Measured",
-  inferred: "Worked out from the USB spec",
-};
-const TRANSPORT = { USB2: "USB 2.0", USB3: "USB 3", USB: "USB", DP: "DisplayPort", DisplayPort: "DisplayPort", TB3: "Thunderbolt 3", TB4: "Thunderbolt 4", Thunderbolt: "Thunderbolt" };
 const ACCESS_WORD = { full: "Yes", partial: "Partly", none: "No" };
+const ACTION_LABEL = { guide: "Run the both-ends test", watch: "Start a port watch", charge: "Start a charging test" };
+const SHEETS = { charge: "panel-charge", watch: "panel-watch", guide: "panel-guide", drive: "panel-drive", details: "sheet-details", tools: "sheet-tools" };
 
 let report = null;
 let lastJson = null;
 let busy = false;
-let showAllFindings = false;
 let showAllDevices = false;
+const powerHistory = [];
+let lastTrigger = null;
 
-// ---- Hero: one answer, one action
+// ---- The answer
 
 function heroFor(r) {
   const s = r.snapshot;
@@ -65,55 +69,24 @@ function heroFor(r) {
 
   if (worst && (worst.severity === "problem" || worst.severity === "warn")) {
     const cableRelated = worst.code.startsWith("cable") || worst.code === "unusual_emarker";
-    return {
-      level: worst.severity,
-      status: SEVERITY_WORD[worst.severity],
-      title: worst.title,
-      text: worst.detail,
-      action: cableRelated ? "guide" : "watch",
-    };
+    return { level: worst.severity, status: SEVERITY_WORD[worst.severity], title: worst.title, text: worst.detail, action: cableRelated ? "guide" : "watch" };
   }
-  if (worst && worst.severity === "good") {
-    return { level: "good", status: "All clear", title: "No problems found", text: worst.detail, action: null };
-  }
-  if (connected || hasDevices) {
-    return {
-      level: "good",
-      status: "All clear",
-      title: "No problems found",
-      text: "Everything this device reports looks normal.",
-      action: null,
-    };
-  }
-  if (blind) {
-    return {
-      level: "info",
-      status: "Limited view",
-      title: "This device can't see cable details",
-      text: "It can still show devices and power. Use the tests below to check a cable yourself.",
-      action: "charge",
-    };
-  }
-  return {
-    level: "idle",
-    status: "Waiting",
-    title: "Plug in a cable to start",
-    text: "Connect a charger or device. This page updates by itself.",
-    action: "watch",
-  };
+  if (worst && worst.severity === "good") return { level: "good", status: "All clear", title: "No problems found", text: worst.detail, action: null };
+  if (connected || hasDevices) return { level: "good", status: "All clear", title: "No problems found", text: "Everything this device reports looks normal.", action: null };
+  if (blind) return { level: "info", status: "Limited view", title: "This device can't see cable details", text: "It still shows devices and power. Run a test to check a cable yourself.", action: "charge" };
+  return { level: "idle", status: "Waiting", title: "Plug in a cable to start", text: "Connect a charger or device. This screen updates by itself.", action: "watch" };
 }
 
-const ACTION_LABEL = {
-  guide: "Run the both-ends test",
-  watch: "Start a port watch",
-  charge: "Start a charging test",
-};
-const ACTION_TAB = { guide: "guide", watch: "watch", charge: "charge" };
+// True when the hero already states the most important finding.
+function heroCovers(r) {
+  const w = r.findings[0];
+  return !!w && (w.severity === "warn" || w.severity === "problem");
+}
 
-function renderHero(r) {
+function renderStage(r) {
   const h = heroFor(r);
-  const hero = $("hero");
-  hero.dataset.level = h.level;
+  const stage = $("stage");
+  stage.dataset.level = h.level;
   $("hero-status").textContent = h.status;
   $("hero-title").textContent = h.title;
   $("hero-text").textContent = h.text;
@@ -121,118 +94,97 @@ function renderHero(r) {
   btn.hidden = !h.action;
   if (h.action) {
     btn.textContent = ACTION_LABEL[h.action];
-    btn.onclick = () => {
-      showTab(ACTION_TAB[h.action], true);
-      $("tools-anchor").scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
-    };
+    btn.onclick = () => openSheet(h.action);
+  }
+  // The most important findings, as tappable chips. The rest live in the Findings sheet.
+  // The hero already states the most important finding, so chips start after it.
+  const rest = heroCovers(r) ? r.findings.slice(1) : r.findings;
+  const chips = rest.slice(0, 3).map((f) =>
+    el("button", { type: "button", class: "finding-chip", textContent: f.title, onclick: (e) => openSheet("details", e.currentTarget) })
+  );
+  if (rest.length > 3) {
+    chips.push(el("button", { type: "button", class: "finding-chip", textContent: `+${rest.length - 3} more`, onclick: (e) => openSheet("details", e.currentTarget) }));
+  }
+  $("findings-chips").replaceChildren(...chips);
+  renderCable(r);
+}
+
+// ---- The cable diagram: the one picture that carries the answer
+
+function renderCable(r) {
+  const s = r.snapshot;
+  const svg = $("stage-cable");
+  const port = s.ports.find((p) => p.connected);
+  const device = s.usb_devices.filter((d) => !d.is_hub).sort((a, b) => (b.speed_mbps || 0) - (a.speed_mbps || 0))[0];
+  const linkMbps = device?.speed_mbps || (port?.cable ? CABLE_MBPS[port.cable.speed] : null);
+  const mw = port?.active_pdo?.max_mw || s.power?.milliwatts || null;
+  const fast = linkMbps && linkMbps >= 5000;
+
+  svg.replaceChildren();
+  svg.setAttribute("viewBox", "0 0 680 150");
+  svg.setAttribute("aria-label", port ? `Cable from this computer to ${port.partner?.vendor_name || port.partner?.kind || "a device"}` : "No cable connected");
+
+  svg.append(
+    svgEl("rect", { x: 20, y: 40, width: 150, height: 70, rx: 16, class: "cable-box" }),
+    svgText({ x: 95, y: 82, "text-anchor": "middle", class: "cable-label" }, "This computer"),
+    svgEl("rect", { x: 510, y: 40, width: 150, height: 70, rx: 16, class: "cable-box" }),
+    svgText({ x: 585, y: 78, "text-anchor": "middle", class: "cable-label" }, port ? (port.partner?.vendor_name || port.partner?.kind || "Device or charger") : "Nothing connected"),
+    svgText({ x: 585, y: 98, "text-anchor": "middle", class: "cable-sub" }, port ? "" : "Plug something in"),
+    svgEl("path", { d: "M170 75 L510 75", class: "cable-body", ...(port ? {} : { "stroke-dasharray": "4 10" }) })
+  );
+  if (port) {
+    svg.append(
+      svgEl("path", { d: "M170 75 L510 75", class: fast ? "cable-flow" : "cable-flow", style: `--flow-speed: ${fast ? "0.6s" : "1.6s"}` }),
+      svgEl("rect", { x: 166, y: 61, width: 18, height: 28, rx: 5, class: "cable-plug" }),
+      svgEl("rect", { x: 496, y: 61, width: 18, height: 28, rx: 5, class: "cable-plug" }),
+      svgText({ x: 340, y: 56, "text-anchor": "middle", class: "cable-label" }, linkMbps ? speedWords(linkMbps) : "Speed not reported"),
+      svgText({ x: 340, y: 110, "text-anchor": "middle", class: "cable-sub" }, mw ? `${watts(mw)} available` : port.cable ? (port.cable.max_watts ? `Rated ${port.cable.max_watts} W` : "Power not stated") : "No cable detail")
+    );
+    if (port.cable) svg.append(svgEl("rect", { x: 300, y: 69, width: 16, height: 12, rx: 3, class: "cable-chip" }));
   }
 }
 
-// ---- Findings: top three, then "show all"
-
-function heroCovers(r) {
-  const w = r.findings[0];
-  return !!w && (w.severity === "warn" || w.severity === "problem");
-}
-
-function renderFindings(r) {
-  // The hero already states the most important finding, so do not repeat it.
-  const list = heroCovers(r) ? r.findings.slice(1) : r.findings;
-  $("findings-box").hidden = list.length === 0;
-  const shown = showAllFindings ? list : list.slice(0, 3);
-  $("findings").replaceChildren(
-    ...shown.map((f) =>
-      el(
-        "li",
-        { class: `finding ${f.severity}` },
-        el("span", { class: "glyph", "aria-hidden": "true", textContent: SEVERITY_GLYPH[f.severity] }),
-        el(
-          "div",
-          {},
-          el(
-            "p",
-            { class: "f-title" },
-            el("span", { class: "sr-only", textContent: `${SEVERITY_WORD[f.severity]}: ` }),
-            f.title
-          ),
-          el("p", { class: "f-detail", textContent: f.detail })
-        )
-      )
-    )
-  );
-  const more = $("findings-more");
-  more.hidden = list.length <= 3;
-  more.textContent = showAllFindings ? "Show fewer" : `Show all ${list.length} findings`;
-  more.setAttribute("aria-expanded", showAllFindings ? "true" : "false");
-}
-
-// ---- Ports
-
-function grid(pairs) {
-  const dl = el("dl", { class: "facts" });
-  for (const [k, v] of pairs) if (v) dl.append(el("dt", { textContent: k }), el("dd", { textContent: v }));
-  return dl;
-}
+// ---- Ports, devices, power, capabilities
 
 function portCard(p, identity) {
-  const card = el(
-    "article",
-    { class: p.connected ? "card port connected" : "card port" },
-    el(
-      "div",
-      { class: "port-head" },
-      el("h3", { textContent: p.label }),
-      el("span", { class: p.connected ? "chip on" : "chip", textContent: p.connected ? "Connected" : "Empty" })
+  const card = el("article", { class: p.connected ? "port connected" : "port" });
+  card.append(
+    el("div", { class: "port-head" },
+      el("span", { class: "port-name" }, el("span", { class: "dot", "aria-hidden": "true" }), p.label),
+      el("span", { class: "chip", textContent: p.connected ? "Connected" : "Empty" })
     )
   );
   if (!p.connected) {
-    card.append(el("p", { class: "muted", textContent: "Nothing plugged in." }));
+    card.append(el("p", { class: "port-line", textContent: "Nothing plugged in" }));
     return card;
   }
+  const line = p.cable
+    ? `${CABLE_SPEED[p.cable.speed]} · ${p.cable.max_watts ? p.cable.max_watts + " W" : "power not stated"}`
+    : identity === "full" ? "No e-marker: limited to 60 W" : "Cable detail not shown";
+  card.append(el("p", { class: "port-line", textContent: line }));
 
-  const facts = [];
-  if (p.cable) {
-    const power = p.cable.max_watts ? `${p.cable.max_watts} W` : "power not stated";
-    facts.push(["Cable", `${CABLE_SPEED[p.cable.speed]}, ${power}`]);
-    facts.push(["Maker", p.cable.vendor_name || `Unknown (${hex(p.cable.vendor_id, 4)})`]);
-  } else if (identity === "full") {
-    facts.push(["Cable", "No e-marker: limited to 60 W"]);
-  }
-  if (p.partner && (p.partner.kind || p.partner.vendor_name)) {
-    facts.push(["Connected to", [p.partner.vendor_name, p.partner.kind].filter(Boolean).join(", ")]);
-  }
+  const details = el("details", { class: "more" }, el("summary", { textContent: "Details" }));
+  const dl = el("dl", {});
+  const add = (k, v) => v && dl.append(el("dt", { textContent: k }), el("dd", { textContent: v }));
+  if (p.cable) add("Maker", p.cable.vendor_name || `Unknown (${hex(p.cable.vendor_id, 4)})`);
+  if (p.partner && (p.partner.kind || p.partner.vendor_name)) add("Connected to", [p.partner.vendor_name, p.partner.kind].filter(Boolean).join(", "));
   const links = p.transports.filter((t) => t !== "CC").map((t) => TRANSPORT[t] || t);
-  if (links.length) facts.push(["Data", links.join(", ")]);
-  card.append(grid(facts));
-
+  if (links.length) add("Data", links.join(", "));
+  add("Data direction", p.data_role ? ({ host: "Host (this computer)", device: "Device" }[p.data_role] || p.data_role) : null);
+  add("Power direction", p.power_role ? ({ source: "Gives power", sink: "Takes power" }[p.power_role] || p.power_role) : null);
+  details.append(dl);
   if (p.source_pdos.length) {
-    const active = p.active_pdo && p.active_pdo.max_mv;
-    card.append(
-      el("p", { class: "pdo", textContent: "Charger offers" }),
-      el(
-        "div",
-        { class: "pdo-list" },
-        ...p.source_pdos.map((o) => {
-          const volts = o.min_mv === o.max_mv ? `${o.max_mv / 1000} V` : `${o.min_mv / 1000} to ${o.max_mv / 1000} V`;
-          return el("span", {
-            class: o.max_mv === active ? "pdo-chip active" : "pdo-chip",
-            textContent: `${volts}, ${watts(o.max_mw)}`,
-          });
-        })
-      )
+    const active = p.active_pdo && p.active_pdo.max_mw;
+    details.append(
+      el("p", { textContent: "Charger offers" }),
+      el("div", { class: "pdo-list" }, ...p.source_pdos.map((o) => {
+        const volts = o.min_mv === o.max_mv ? `${o.max_mv / 1000} V` : `${o.min_mv / 1000} to ${o.max_mv / 1000} V`;
+        return el("span", { class: o.max_mv === active ? "pdo-chip active" : "pdo-chip", textContent: `${volts}, ${watts(o.max_mw)}` });
+      }))
     );
   }
-
-  const raw = [
-    ["Data direction", p.data_role ? ({ host: "Host (this computer)", device: "Device" }[p.data_role] || p.data_role) : null],
-    ["Power direction", p.power_role ? ({ source: "Gives power", sink: "Takes power" }[p.power_role] || p.power_role) : null],
-    ["Plug orientation", p.orientation],
-  ];
-  const more = el("details", { class: "more" }, el("summary", { textContent: "More about this port" }), grid(raw));
-  if (p.cable) {
-    more.append(el("code", { textContent: p.cable.raw_vdos.map((v) => "0x" + hex(v, 8)).join(" ") }));
-  }
-  card.append(more);
+  if (p.cable) details.append(el("code", { textContent: p.cable.raw_vdos.map((v) => "0x" + hex(v, 8)).join(" ") }));
+  card.append(details);
   return card;
 }
 
@@ -241,123 +193,131 @@ function renderPorts(s) {
   $("ports").replaceChildren(
     ...(s.ports.length
       ? s.ports.map((p) => portCard(p, identity))
-      : [el("article", { class: "card" }, el("p", { class: "muted", textContent: `No USB-C ports are reported here. ${s.capabilities.cable_identity.why}` }))])
+      : [el("article", { class: "port" }, el("p", { class: "port-line", textContent: s.capabilities.cable_identity.why || "No USB-C ports are reported here." }))])
   );
 }
-
-// ---- Power
-
-function renderPower(s) {
-  const p = s.power;
-  $("power-box").hidden = !p;
-  if (!p) return;
-  const reading = p.milliwatts != null ? watts(p.milliwatts) : "No reading";
-  $("power").replaceChildren(
-    el("div", { class: "big", textContent: reading }),
-    el("p", { class: "muted", textContent: CHARGE_STATE[p.state] || CHARGE_STATE.unknown }),
-    el(
-      "div",
-      { class: "stats" },
-      ...[
-        ["Battery", p.battery_percent != null ? `${p.battery_percent}%` : "Not reported"],
-        ["Voltage", p.voltage_mv ? `${(p.voltage_mv / 1000).toFixed(2)} V` : "Not reported"],
-        ["Current", p.current_ma ? `${(p.current_ma / 1000).toFixed(2)} A` : "Not reported"],
-      ].map(([label, value]) =>
-        el("div", { class: "stat" }, el("span", { class: "stat-value", textContent: value }), el("span", { class: "stat-label", textContent: label }))
-      )
-    ),
-    el("p", { class: "muted", textContent: /battery/i.test(p.source) ? "Read from the battery" : `Read from ${p.source}` })
-  );
-}
-
-// ---- Devices
 
 function renderDevices(s) {
   const list = s.usb_devices.filter((d) => !d.is_hub);
-  $("devices-box").hidden = list.length === 0;
-  const shown = showAllDevices ? list : list.slice(0, 5);
+  const shown = showAllDevices ? list : list.slice(0, 4);
   $("devices").replaceChildren(
-    ...shown.map((d) => {
-      const name = d.product_name || d.vendor_name || "Unnamed device";
-      const sub = [d.vendor_name && d.product_name ? d.vendor_name : null, d.usb_version ? `USB ${d.usb_version}` : null]
-        .filter(Boolean)
-        .join(" · ");
-      return el(
-        "div",
-        { class: "row" },
-        el("div", {}, name, el("span", { class: "sub", textContent: sub || `${hex(d.vendor_id, 4)}:${hex(d.product_id, 4)}` })),
-        el("div", { class: "val", textContent: d.speed_mbps ? speedWords(d.speed_mbps) : "Speed not reported" })
-      );
-    })
+    ...(list.length
+      ? shown.map((d) => {
+          const name = d.product_name || d.vendor_name || "Unnamed device";
+          const sub = d.usb_version ? `USB ${d.usb_version}` : `${hex(d.vendor_id, 4)}:${hex(d.product_id, 4)}`;
+          return el("div", { class: "device" },
+            el("div", {}, name, el("span", { class: "sub", textContent: sub })),
+            el("span", { class: "val", textContent: d.speed_mbps ? speedWords(d.speed_mbps) : "Speed not reported" }));
+        })
+      : [el("p", { class: "port-line", textContent: "No devices connected." })])
   );
   const more = $("devices-more");
-  more.hidden = list.length <= 5;
-  more.textContent = showAllDevices ? "Show fewer" : `Show all ${list.length} devices`;
-  more.setAttribute("aria-expanded", showAllDevices ? "true" : "false");
+  more.hidden = list.length <= 4;
+  more.textContent = showAllDevices ? "Show fewer" : `Show all ${list.length}`;
 }
 
-// ---- What this device can show
+function drawSpark() {
+  const svg = $("spark");
+  svg.replaceChildren();
+  const W = 300, H = 70, values = powerHistory.slice(-40);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  if (values.length < 2) return;
+  const max = Math.max(10, ...values) * 1.15;
+  const x = (i) => 8 + (i / (values.length - 1)) * (W - 16);
+  const y = (v) => H - 8 - (v / max) * (H - 16);
+  const d = values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  svg.append(
+    svgEl("path", { d: `${d} L${x(values.length - 1)},${H} L${x(0)},${H} Z`, class: "fill" }),
+    svgEl("path", { d, class: "line" })
+  );
+}
+
+function renderPower(s) {
+  const p = s.power;
+  const ring = $("power-ring");
+  $("power-big").textContent = p && p.milliwatts != null ? watts(p.milliwatts) : "No reading";
+  $("power-state").textContent = p ? CHARGE_STATE[p.state] || CHARGE_STATE.unknown : "No battery here";
+  if (p && p.battery_percent != null) window.QCViz.ring(ring, p.battery_percent, "Battery");
+  else ring.replaceChildren();
+  $("power-stats").replaceChildren(
+    ...[
+      ["Battery", p && p.battery_percent != null ? `${p.battery_percent}%` : "—"],
+      ["Volts", p && p.voltage_mv ? `${(p.voltage_mv / 1000).toFixed(1)} V` : "—"],
+      ["Amps", p && p.current_ma ? `${(p.current_ma / 1000).toFixed(2)} A` : "—"],
+    ].map(([label, value]) => el("div", { class: "tile" }, el("strong", { textContent: value }), el("span", { textContent: label })))
+  );
+}
 
 function renderAccess(s) {
   const c = s.capabilities;
-  const rows = [
-    ["Cable chip (e-marker)", c.cable_identity],
-    ["Charger power profiles", c.charger_profiles],
-    ["USB link speed", c.link_speed],
-    ["Power measurement", c.power_measurement],
-  ];
+  const rows = [["Cable chip", c.cable_identity], ["Charger profiles", c.charger_profiles], ["Link speed", c.link_speed], ["Power reading", c.power_measurement]];
   $("access").replaceChildren(
     ...rows.map(([name, a]) =>
-      el(
-        "div",
-        { class: "row" },
-        el("div", {}, name, a.why ? el("span", { class: "sub", textContent: a.why }) : null),
-        el("div", { class: "val", textContent: ACCESS_WORD[a.level] })
-      )
-    )
+      el("div", { class: "access-row", title: a.why || "" },
+        el("span", { textContent: name }),
+        el("span", { class: a.level === "full" ? "chip on" : "chip", textContent: ACCESS_WORD[a.level] })))
   );
   $("version").textContent = s.tool_version;
-  // Drive speed is a desktop test. Hide its tab on phones.
+  // Drive speed is a desktop test. Hide its dock button on phones.
   const android = s.platform === "android";
   $("tab-drive").hidden = android;
-  if (android && $("tab-drive").getAttribute("aria-selected") === "true") showTab("charge");
+  if (android && !$(SHEETS.drive).hidden) closeSheet();
 }
 
-// ---- Tests: tabs
+function renderFindingsList(r) {
+  $("findings").replaceChildren(
+    ...r.findings.map((f) =>
+      el("li", { class: `finding ${f.severity}` },
+        el("span", { class: "glyph", "aria-hidden": "true", textContent: SEVERITY_GLYPH[f.severity] }),
+        el("div", {},
+          el("p", { class: "f-title" }, el("span", { class: "sr-only", textContent: `${SEVERITY_WORD[f.severity]}: ` }), f.title),
+          el("p", { class: "f-detail", textContent: f.detail })))
+    )
+  );
+}
 
-const TABS = ["charge", "watch", "guide", "drive"];
+// ---- Sheets: tests and tools open over the screen, never below it
 
-function showTab(name, focus) {
-  for (const t of TABS) {
-    const tab = $(`tab-${t}`);
-    const panel = $(`panel-${t}`);
-    const on = t === name;
-    tab.setAttribute("aria-selected", on ? "true" : "false");
-    tab.tabIndex = on ? 0 : -1;
-    panel.hidden = !on;
+function openSheet(name, trigger) {
+  const id = SHEETS[name];
+  if (!id) return;
+  lastTrigger = trigger || document.activeElement;
+  for (const other of Object.values(SHEETS)) if (other !== id) $(other).hidden = true;
+  $(id).hidden = false;
+  $("scrim").hidden = false;
+  for (const key of ["charge", "watch", "guide", "drive"]) {
+    const tab = $(`tab-${key}`);
+    tab.setAttribute("aria-expanded", key === name ? "true" : "false");
   }
-  if (focus) $(`tab-${name}`).focus();
+  const first = $(id).querySelector("button, [href], summary") || $(id);
+  first.focus();
 }
 
-function visibleTabs() {
-  return TABS.filter((t) => !$(`tab-${t}`).hidden);
+function closeSheet() {
+  for (const id of Object.values(SHEETS)) $(id).hidden = true;
+  $("scrim").hidden = true;
+  if (lastTrigger && lastTrigger.focus) lastTrigger.focus();
 }
 
-function onTabKey(e) {
-  const order = visibleTabs();
-  const current = order.indexOf(TABS.find((t) => $(`tab-${t}`) === e.currentTarget));
+function visibleDock() {
+  return ["tab-charge", "tab-watch", "tab-guide", "tab-drive", "open-details", "open-tools"].map((id) => $(id)).filter((b) => !b.hidden);
+}
+
+function onDockKey(e) {
+  const order = visibleDock();
+  const i = order.indexOf(e.currentTarget);
   let next = null;
-  if (e.key === "ArrowRight") next = order[(current + 1) % order.length];
-  if (e.key === "ArrowLeft") next = order[(current - 1 + order.length) % order.length];
+  if (e.key === "ArrowRight") next = order[(i + 1) % order.length];
+  if (e.key === "ArrowLeft") next = order[(i - 1 + order.length) % order.length];
   if (e.key === "Home") next = order[0];
   if (e.key === "End") next = order[order.length - 1];
   if (next) {
     e.preventDefault();
-    showTab(next, true);
+    next.focus();
   }
 }
 
-// ---- Tests: charge and drive speed
+// ---- Tests
 
 let charging = false;
 
@@ -411,8 +371,6 @@ async function writeTest() {
   }
 }
 
-// ---- Self-check and copy
-
 async function runSelfCheck() {
   const out = $("qa-out");
   const btn = $("qa-run");
@@ -434,14 +392,14 @@ async function runSelfCheck() {
   }
 }
 
+// ---- Copy
+
 function summaryText(r) {
   const s = r.snapshot;
   const h = heroFor(r);
   const lines = [`QloudiCable on ${s.platform}: ${h.title}.`];
   for (const p of s.ports.filter((x) => x.connected)) {
-    const cable = p.cable
-      ? `${CABLE_SPEED[p.cable.speed]}, ${p.cable.max_watts ? p.cable.max_watts + " W" : "power not stated"}`
-      : "no cable detail";
+    const cable = p.cable ? `${CABLE_SPEED[p.cable.speed]}, ${p.cable.max_watts ? p.cable.max_watts + " W" : "power not stated"}` : "no cable detail";
     lines.push(`${p.label}: ${cable}`);
   }
   for (const f of r.findings.slice(0, 3)) lines.push(`${SEVERITY_WORD[f.severity]}: ${f.title}`);
@@ -465,12 +423,14 @@ async function copyText(text, button, doneLabel) {
 function render(r) {
   report = r;
   const s = r.snapshot;
-  renderHero(r);
-  renderFindings(r);
+  renderStage(r);
   renderPorts(s);
-  renderPower(s);
   renderDevices(s);
+  if (s.power && s.power.milliwatts != null) powerHistory.push(s.power.milliwatts / 1000);
+  renderPower(s);
+  drawSpark();
   renderAccess(s);
+  renderFindingsList(r);
 }
 
 async function refresh() {
@@ -479,10 +439,9 @@ async function refresh() {
   try {
     const r = await call("report");
     $("error").hidden = true;
-    $("updated").textContent = `Checked at ${new Date().toLocaleTimeString()}`;
+    $("updated").textContent = `Checked ${new Date().toLocaleTimeString()}`;
     const text = JSON.stringify(r);
     if (text !== lastJson) {
-      // Redraw only on change, so open details and focus stay put.
       lastJson = text;
       render(r);
     }
@@ -497,16 +456,8 @@ async function refresh() {
 // ---- Wiring
 
 $("refresh").addEventListener("click", refresh);
-$("copy").addEventListener("click", () => {
-  if (report) copyText(summaryText(report), $("copy"), "Copied");
-});
-$("copy-json").addEventListener("click", () => {
-  if (report) copyText(JSON.stringify(report, null, 2), $("copy-json"), "Copied");
-});
-$("findings-more").addEventListener("click", () => {
-  showAllFindings = !showAllFindings;
-  if (report) renderFindings(report);
-});
+$("copy").addEventListener("click", () => report && copyText(summaryText(report), $("copy"), "Copied"));
+$("copy-json").addEventListener("click", () => report && copyText(JSON.stringify(report, null, 2), $("copy-json"), "Copied"));
 $("devices-more").addEventListener("click", () => {
   showAllDevices = !showAllDevices;
   if (report) renderDevices(report.snapshot);
@@ -514,16 +465,20 @@ $("devices-more").addEventListener("click", () => {
 $("charge-run").addEventListener("click", chargeTest);
 $("write-run").addEventListener("click", writeTest);
 $("qa-run").addEventListener("click", runSelfCheck);
-for (const t of TABS) {
-  const tab = $(`tab-${t}`);
-  tab.addEventListener("click", () => showTab(t));
-  tab.addEventListener("keydown", onTabKey);
+$("scrim").addEventListener("click", closeSheet);
+$("open-details").addEventListener("click", (e) => openSheet("details", e.currentTarget));
+$("open-tools").addEventListener("click", (e) => openSheet("tools", e.currentTarget));
+document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeSheet));
+for (const key of ["charge", "watch", "guide", "drive"]) {
+  const btn = $(`tab-${key}`);
+  btn.addEventListener("click", (e) => openSheet(key, e.currentTarget));
+  btn.addEventListener("keydown", onDockKey);
 }
-// Anchor for "scroll to tests" from the hero.
-const anchor = el("span", { id: "tools-anchor" });
-$("tools-title").before(anchor);
+["open-details", "open-tools"].forEach((id) => $(id).addEventListener("keydown", onDockKey));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("scrim").hidden) closeSheet();
+});
 
-showTab("charge");
 refresh();
 let pollTimer = setInterval(refresh, 3000);
 document.addEventListener("visibilitychange", () => {
