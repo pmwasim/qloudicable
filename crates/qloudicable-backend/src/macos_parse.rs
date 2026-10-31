@@ -40,7 +40,10 @@ impl Value {
 
 /// (type, number) pair that ties a transport or power service to its port.
 pub fn parent_port(v: &Value) -> (i64, i64) {
-    let ty = v.num("ParentBuiltInPortType").or_else(|| v.num("ParentPortType")).unwrap_or(0);
+    let ty = v
+        .num("ParentBuiltInPortType")
+        .or_else(|| v.num("ParentPortType"))
+        .unwrap_or(0);
     let number = v
         .num("ParentBuiltInPortNumber")
         .or_else(|| v.num("ParentPortNumber"))
@@ -74,7 +77,9 @@ pub fn parse_vdos(v: &Value) -> Vec<u32> {
         Some(Value::List(items)) => items
             .iter()
             .filter_map(|i| match i {
-                Value::Data(d) if d.len() >= 4 => Some(u32::from_le_bytes([d[0], d[1], d[2], d[3]])),
+                Value::Data(d) if d.len() >= 4 => {
+                    Some(u32::from_le_bytes([d[0], d[1], d[2], d[3]]))
+                }
                 _ => None,
             })
             .collect(),
@@ -122,7 +127,7 @@ pub fn parse_usb_device(v: &Value) -> Option<UsbDevice> {
     let usb_version = bcd.map(|b| format!("{:x}.{:02x}", b >> 8, b & 0xFF));
     let location_id = v.num("locationID");
     let port_id = location_id.and_then(|loc| {
-        let controller_idx = (loc >> 24) as i64;
+        let controller_idx = loc >> 24;
         let port_num = controller_idx + 1;
         if port_num > 0 {
             Some(format!("2:{port_num}"))
@@ -133,7 +138,10 @@ pub fn parse_usb_device(v: &Value) -> Option<UsbDevice> {
     Some(UsbDevice {
         vendor_id,
         product_id: v.num("idProduct").unwrap_or(0) as u16,
-        vendor_name: v.text("USB Vendor Name").map(str::to_string).or_else(|| vendors::name(vendor_id).map(str::to_string)),
+        vendor_name: v
+            .text("USB Vendor Name")
+            .map(str::to_string)
+            .or_else(|| vendors::name(vendor_id).map(str::to_string)),
         product_name: v.text("USB Product Name").map(str::to_string),
         capable_mbps: usb_version.as_deref().and_then(crate::capable_from_version),
         usb_version,
@@ -188,7 +196,15 @@ mod tests {
         let header: u32 = (0b011 << 27) | 0x05AC;
         let v = d(vec![(
             "Metadata",
-            d(vec![("VDOs", Value::List(vec![blob(header), blob(7), blob(0x1234_0100), blob((0b10 << 5) | 0b011)]))]),
+            d(vec![(
+                "VDOs",
+                Value::List(vec![
+                    blob(header),
+                    blob(7),
+                    blob(0x1234_0100),
+                    blob((0b10 << 5) | 0b011),
+                ]),
+            )]),
         )]);
         let c = parse_cable(&v).unwrap();
         assert_eq!((c.vendor_id, c.product_id, c.xid), (0x05AC, 0x1234, 7));
@@ -198,8 +214,17 @@ mod tests {
 
     #[test]
     fn pdo_lists_sort_and_keep_stated_power() {
-        let opt = |mv, ma, mw| d(vec![("Voltage (mV)", Value::Num(mv)), ("Max Current (mA)", Value::Num(ma)), ("Max Power (mW)", Value::Num(mw))]);
-        let v = d(vec![("PowerSourceOptions", Value::List(vec![opt(20000, 4700, 94000), opt(5000, 3000, 15000)]))]);
+        let opt = |mv, ma, mw| {
+            d(vec![
+                ("Voltage (mV)", Value::Num(mv)),
+                ("Max Current (mA)", Value::Num(ma)),
+                ("Max Power (mW)", Value::Num(mw)),
+            ])
+        };
+        let v = d(vec![(
+            "PowerSourceOptions",
+            Value::List(vec![opt(20000, 4700, 94000), opt(5000, 3000, 15000)]),
+        )]);
         let p = parse_pdos(&v, "PowerSourceOptions");
         assert_eq!(p[0].max_mw, 15000);
         assert_eq!(p[1].max_mw, 94000);
@@ -208,9 +233,16 @@ mod tests {
 
     #[test]
     fn parent_port_prefers_built_in() {
-        let v = d(vec![("ParentBuiltInPortType", Value::Num(2)), ("ParentPortType", Value::Num(9)), ("ParentPortNumber", Value::Num(3))]);
+        let v = d(vec![
+            ("ParentBuiltInPortType", Value::Num(2)),
+            ("ParentPortType", Value::Num(9)),
+            ("ParentPortNumber", Value::Num(3)),
+        ]);
         assert_eq!(parent_port(&v), (2, 3));
-        assert_eq!(parent_port(&d(vec![("Priority", Value::Num(0x105))])), (0, 5));
+        assert_eq!(
+            parent_port(&d(vec![("Priority", Value::Num(0x105))])),
+            (0, 5)
+        );
     }
 
     #[test]
@@ -230,14 +262,32 @@ mod tests {
 
     #[test]
     fn port_fields() {
-        let v = d(vec![("PortTypeDescription", Value::Str("USB-C".into())), ("PortType", Value::Num(2)), ("PortNumber", Value::Num(1)), ("ConnectionActive", Value::Bool(true)), ("TransportsActive", Value::List(vec![Value::Str("USB3".into())]))]);
+        let v = d(vec![
+            ("PortTypeDescription", Value::Str("USB-C".into())),
+            ("PortType", Value::Num(2)),
+            ("PortNumber", Value::Num(1)),
+            ("ConnectionActive", Value::Bool(true)),
+            (
+                "TransportsActive",
+                Value::List(vec![Value::Str("USB3".into())]),
+            ),
+        ]);
         let p = parse_port(&v, 0).unwrap();
         assert_eq!(p.label, "USB-C port 1");
         assert!(parse_port(&d(vec![("PortType", Value::Num(2))]), 0).is_none());
         for other in ["HDMI", "SD Card", "Virtual"] {
-            assert!(parse_port(&d(vec![("PortTypeDescription", Value::Str(other.into()))]), 0).is_none());
+            assert!(
+                parse_port(
+                    &d(vec![("PortTypeDescription", Value::Str(other.into()))]),
+                    0
+                )
+                .is_none()
+            );
         }
-        let magsafe = d(vec![("PortTypeDescription", Value::Str("MagSafe 3".into())), ("PortNumber", Value::Num(1))]);
+        let magsafe = d(vec![
+            ("PortTypeDescription", Value::Str("MagSafe 3".into())),
+            ("PortNumber", Value::Num(1)),
+        ]);
         assert_eq!(parse_port(&magsafe, 0).unwrap().label, "MagSafe 3 port 1");
         assert_eq!(p.id, "2:1");
         assert!(p.connected);

@@ -47,7 +47,14 @@ fn finding(
     detail: String,
     evidence: Evidence,
 ) -> Finding {
-    Finding { port: port.map(str::to_string), severity, code: code.into(), title, detail, evidence }
+    Finding {
+        port: port.map(str::to_string),
+        severity,
+        code: code.into(),
+        title,
+        detail,
+        evidence,
+    }
 }
 
 /// The USB-C spec limits a cable with no e-marker to 3 A, and so 60 W at 20 V.
@@ -63,14 +70,20 @@ pub fn diagnose(s: &Snapshot) -> Report {
         }
     }
     for d in s.usb_devices.iter().filter(|d| !d.is_hub) {
-        let port = d.port_id.as_deref().and_then(|id| s.ports.iter().find(|p| p.id == id));
+        let port = d
+            .port_id
+            .as_deref()
+            .and_then(|id| s.ports.iter().find(|p| p.id == id));
         data_link(d, port, &mut out);
     }
     if let Some(power) = &s.power {
         measured_power(power, s, &mut out);
     }
     out.sort_by_key(|f| std::cmp::Reverse(f.severity));
-    Report { snapshot: s.clone(), findings: out }
+    Report {
+        snapshot: s.clone(),
+        findings: out,
+    }
 }
 
 fn charging(p: &Port, identity_visible: bool, out: &mut Vec<Finding>) {
@@ -87,14 +100,18 @@ fn charging(p: &Port, identity_visible: bool, out: &mut Vec<Finding>) {
         let how = if p.cable.is_some() {
             format!("The cable's chip states a {cable} W limit.")
         } else {
-            format!("This cable has no e-marker chip, which limits it to {cable} W under the USB-C spec.")
+            format!(
+                "This cable has no e-marker chip, which limits it to {cable} W under the USB-C spec."
+            )
         };
         out.push(finding(
             id,
             Severity::Warn,
             "cable_limits_charging",
             "Cable is limiting charging speed".into(),
-            format!("{how} The charger can supply {charger} W. A higher-rated cable would allow more."),
+            format!(
+                "{how} The charger can supply {charger} W. A higher-rated cable would allow more."
+            ),
             cable_evidence,
         ));
     }
@@ -153,7 +170,9 @@ fn trust(p: &Port, c: &CableInfo, out: &mut Vec<Finding>) {
 
 fn capitalise(s: &str) -> String {
     let mut chars = s.chars();
-    chars.next().map_or_else(String::new, |f| f.to_uppercase().chain(chars).collect())
+    chars
+        .next()
+        .map_or_else(String::new, |f| f.to_uppercase().chain(chars).collect())
 }
 
 fn device_name(d: &UsbDevice) -> String {
@@ -256,7 +275,10 @@ mod tests {
     fn snap(ports: Vec<Port>, identity: Level) -> Snapshot {
         Snapshot {
             capabilities: Capabilities {
-                cable_identity: Access { level: identity, why: String::new() },
+                cable_identity: Access {
+                    level: identity,
+                    why: String::new(),
+                },
                 ..Default::default()
             },
             ports,
@@ -289,7 +311,10 @@ mod tests {
 
     #[test]
     fn three_amp_cable_on_100w_charger_blames_cable() {
-        let r = diagnose(&snap(vec![charging_port(Some(cable_3a()), 60)], Level::Full));
+        let r = diagnose(&snap(
+            vec![charging_port(Some(cable_3a()), 60)],
+            Level::Full,
+        ));
         assert_eq!(r.findings[0].code, "cable_limits_charging");
         assert_eq!(r.findings[0].evidence, Evidence::Reported);
         assert!(codes(&r).contains(&"charging_at_limit"));
@@ -307,7 +332,10 @@ mod tests {
 
     #[test]
     fn low_contract_with_good_cable_is_not_a_cable_problem() {
-        let r = diagnose(&snap(vec![charging_port(Some(cable_5a()), 30)], Level::Full));
+        let r = diagnose(&snap(
+            vec![charging_port(Some(cable_5a()), 30)],
+            Level::Full,
+        ));
         assert_eq!(codes(&r), vec!["negotiated_below_limit"]);
     }
 
@@ -321,20 +349,45 @@ mod tests {
     #[test]
     fn flags_zero_vendor_and_reserved_bits() {
         let c = decode_cable(0b011 << 27, 0, 0, (0b11 << 5) | 0b111);
-        let r = diagnose(&snap(vec![Port { id: "p".into(), connected: true, cable: Some(c), ..Default::default() }], Level::Full));
-        let f = r.findings.iter().find(|f| f.code == "unusual_emarker").unwrap();
+        let r = diagnose(&snap(
+            vec![Port {
+                id: "p".into(),
+                connected: true,
+                cable: Some(c),
+                ..Default::default()
+            }],
+            Level::Full,
+        ));
+        let f = r
+            .findings
+            .iter()
+            .find(|f| f.code == "unusual_emarker")
+            .unwrap();
         assert!(f.detail.contains("vendor ID is zero"));
         assert!(f.detail.contains("speed"));
         assert!(f.detail.contains("current"));
     }
 
     fn dev(now: u32, capable: Option<u32>) -> UsbDevice {
-        UsbDevice { speed_mbps: Some(now), capable_mbps: capable, port_id: Some("p0".into()), ..Default::default() }
+        UsbDevice {
+            speed_mbps: Some(now),
+            capable_mbps: capable,
+            port_id: Some("p0".into()),
+            ..Default::default()
+        }
     }
 
     #[test]
     fn data_speed_blame_needs_cable_evidence() {
-        let mut s = snap(vec![Port { id: "p0".into(), connected: true, cable: Some(cable_3a()), ..Default::default() }], Level::Full);
+        let mut s = snap(
+            vec![Port {
+                id: "p0".into(),
+                connected: true,
+                cable: Some(cable_3a()),
+                ..Default::default()
+            }],
+            Level::Full,
+        );
         s.usb_devices = vec![dev(480, Some(10_000))];
         assert!(codes(&diagnose(&s)).contains(&"cable_limits_data"));
 
@@ -351,26 +404,50 @@ mod tests {
     #[test]
     fn hubs_and_unknown_capability_produce_no_data_verdict() {
         let mut s = snap(vec![], Level::None);
-        s.usb_devices = vec![UsbDevice { is_hub: true, ..dev(480, Some(5000)) }, dev(480, None)];
+        s.usb_devices = vec![
+            UsbDevice {
+                is_hub: true,
+                ..dev(480, Some(5000))
+            },
+            dev(480, None),
+        ];
         assert!(diagnose(&s).findings.is_empty());
     }
 
     #[test]
     fn measured_power_states() {
         let mut s = snap(vec![], Level::None);
-        s.power = Some(PowerReading { state: ChargeState::Charging, milliwatts: Some(18_500), ..Default::default() });
+        s.power = Some(PowerReading {
+            state: ChargeState::Charging,
+            milliwatts: Some(18_500),
+            ..Default::default()
+        });
         let r = diagnose(&s);
         assert_eq!(r.findings[0].evidence, Evidence::Measured);
         assert!(r.findings[0].detail.contains("known good cable"));
-        s.power = Some(PowerReading { state: ChargeState::NotCharging, external_power: Some(true), ..Default::default() });
+        s.power = Some(PowerReading {
+            state: ChargeState::NotCharging,
+            external_power: Some(true),
+            ..Default::default()
+        });
         assert_eq!(codes(&diagnose(&s)), vec!["plugged_not_charging"]);
-        s.power = Some(PowerReading { state: ChargeState::Full, ..Default::default() });
+        s.power = Some(PowerReading {
+            state: ChargeState::Full,
+            ..Default::default()
+        });
         assert_eq!(codes(&diagnose(&s)), vec!["battery_full"]);
     }
 
     #[test]
     fn worst_finding_comes_first() {
-        let r = diagnose(&snap(vec![charging_port(Some(cable_3a()), 60)], Level::Full));
-        assert!(r.findings.windows(2).all(|w| w[0].severity >= w[1].severity));
+        let r = diagnose(&snap(
+            vec![charging_port(Some(cable_3a()), 60)],
+            Level::Full,
+        ));
+        assert!(
+            r.findings
+                .windows(2)
+                .all(|w| w[0].severity >= w[1].severity)
+        );
     }
 }

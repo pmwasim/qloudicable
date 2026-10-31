@@ -52,10 +52,20 @@ pub fn charge_test(watts: &[f64]) -> ChargeTest {
         Stability::Fluctuating => format!(
             "Power swung between {min:.1} W and {max:.1} W. Normal if the device is busy; if it is idle, suspect the cable or charger."
         ),
-        _ if max < 0.5 => "No charging power during the test. Check the charger is plugged in and switched on.".into(),
+        _ if max < 0.5 => {
+            "No charging power during the test. Check the charger is plugged in and switched on."
+                .into()
+        }
         _ => format!("Steady at about {avg:.1} W with no dropouts."),
     };
-    ChargeTest { samples: watts.len(), avg_w: avg, min_w: min, max_w: max, stability, summary }
+    ChargeTest {
+        samples: watts.len(),
+        avg_w: avg,
+        min_w: min,
+        max_w: max,
+        stability,
+        summary,
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -68,7 +78,11 @@ pub struct DataTest {
 }
 
 pub fn data_test(bytes: u64, seconds: f64, link_mbps: Option<u32>) -> DataTest {
-    let write_mbps = if seconds > 0.0 { bytes as f64 * 8.0 / 1e6 / seconds } else { 0.0 };
+    let write_mbps = if seconds > 0.0 {
+        bytes as f64 * 8.0 / 1e6 / seconds
+    } else {
+        0.0
+    };
     let summary = match link_mbps {
         // Protocol overhead takes a sizeable share of USB 2 and a smaller one of
         // USB 3, and most drives are slower than their link, so only a result
@@ -77,9 +91,17 @@ pub fn data_test(bytes: u64, seconds: f64, link_mbps: Option<u32>) -> DataTest {
             "Wrote at {write_mbps:.0} Mbps on a {link} Mbps link. The drive itself is the likely limit, not the cable."
         ),
         Some(link) => format!("Wrote at {write_mbps:.0} Mbps on a {link} Mbps link."),
-        None => format!("Wrote at {write_mbps:.0} Mbps. This system did not report the link speed."),
+        None => {
+            format!("Wrote at {write_mbps:.0} Mbps. This system did not report the link speed.")
+        }
     };
-    DataTest { bytes, seconds, write_mbps, link_mbps, summary }
+    DataTest {
+        bytes,
+        seconds,
+        write_mbps,
+        link_mbps,
+        summary,
+    }
 }
 
 #[cfg(test)]
@@ -89,23 +111,47 @@ mod tests {
     #[test]
     fn classifies_runs() {
         assert_eq!(charge_test(&[]).stability, Stability::NoData);
-        assert_eq!(charge_test(&[30.0, 30.5, 29.8]).stability, Stability::Steady);
-        assert_eq!(charge_test(&[10.0, 40.0, 12.0, 38.0]).stability, Stability::Fluctuating);
-        assert_eq!(charge_test(&[30.0, 0.0, 30.0]).stability, Stability::Dropouts);
+        assert_eq!(
+            charge_test(&[30.0, 30.5, 29.8]).stability,
+            Stability::Steady
+        );
+        assert_eq!(
+            charge_test(&[10.0, 40.0, 12.0, 38.0]).stability,
+            Stability::Fluctuating
+        );
+        assert_eq!(
+            charge_test(&[30.0, 0.0, 30.0]).stability,
+            Stability::Dropouts
+        );
         // Never charging is steady at nothing, not a dropout.
         assert_eq!(charge_test(&[0.0, 0.0]).stability, Stability::Steady);
-        assert!(charge_test(&[0.0, 0.0]).summary.starts_with("No charging power"));
+        assert!(
+            charge_test(&[0.0, 0.0])
+                .summary
+                .starts_with("No charging power")
+        );
     }
 
     #[test]
     fn battery_drain_is_not_charging_power() {
         use crate::{ChargeState, PowerReading};
-        let drain = PowerReading { state: ChargeState::Discharging, external_power: Some(false), milliwatts: Some(4500), ..Default::default() };
+        let drain = PowerReading {
+            state: ChargeState::Discharging,
+            external_power: Some(false),
+            milliwatts: Some(4500),
+            ..Default::default()
+        };
         assert_eq!(drain.charging_milliwatts(), Some(0));
-        let charging = PowerReading { state: ChargeState::Charging, external_power: Some(true), milliwatts: Some(4500), ..Default::default() };
+        let charging = PowerReading {
+            state: ChargeState::Charging,
+            external_power: Some(true),
+            milliwatts: Some(4500),
+            ..Default::default()
+        };
         assert_eq!(charging.charging_milliwatts(), Some(4500));
         // Unplugging mid-run must not read as steady.
-        let run = [charging.charging_milliwatts(), drain.charging_milliwatts()].map(|mw| mw.unwrap() as f64 / 1000.0);
+        let run = [charging.charging_milliwatts(), drain.charging_milliwatts()]
+            .map(|mw| mw.unwrap() as f64 / 1000.0);
         assert_eq!(charge_test(&run).stability, Stability::Dropouts);
     }
 
@@ -113,7 +159,11 @@ mod tests {
     fn data_rate_maths() {
         let t = data_test(125_000_000, 1.0, Some(5000));
         assert_eq!(t.write_mbps, 1000.0);
-        assert!(data_test(1_000_000, 1.0, Some(5000)).summary.contains("drive"));
+        assert!(
+            data_test(1_000_000, 1.0, Some(5000))
+                .summary
+                .contains("drive")
+        );
         assert!(data_test(1, 0.0, None).summary.contains("did not report"));
     }
 }

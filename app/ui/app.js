@@ -240,8 +240,31 @@ async function refresh() {
 
 async function copyReport() {
   const b = $("copy");
+  if (!last) return;
   try {
-    await navigator.clipboard.writeText(JSON.stringify(JSON.parse(last), null, 2));
+    const parsed = JSON.parse(last);
+    const s = parsed.snapshot || {};
+    const lines = [`=== QloudiCable ${s.tool_version || ""} on ${s.platform || ""} ===\n`];
+    for (const p of s.ports || []) {
+      lines.push(`${p.label}: ${p.connected ? "connected" : "nothing connected"}`);
+      if (p.cable) {
+        const sp = CABLE_SPEED[p.cable.speed] || p.cable.speed;
+        const cur = p.cable.current_a ? ` · ${p.cable.current_a} A` : "";
+        const w = p.cable.max_watts ? ` · ${p.cable.max_watts} W` : "";
+        lines.push(`  Cable: ${sp}${cur}${w}`);
+      }
+    }
+    if (s.power) {
+      lines.push(`\nPower: ${STATE[s.power.state] || s.power.state}${s.power.milliwatts != null ? `, ${watts(s.power.milliwatts)}` : ""} (${s.power.source || ""})`);
+    }
+    if (parsed.findings && parsed.findings.length) {
+      lines.push("\nFindings:");
+      for (const f of parsed.findings) {
+        lines.push(`  [${f.severity.toUpperCase()}] ${f.title}: ${f.detail}`);
+      }
+    }
+    lines.push("\n--- Raw Data ---\n" + JSON.stringify(parsed, null, 2));
+    await navigator.clipboard.writeText(lines.join("\n"));
     b.textContent = "Copied";
   } catch {
     b.textContent = "Couldn't copy";
@@ -303,4 +326,15 @@ $("copy").addEventListener("click", copyReport);
 $("charge-run").addEventListener("click", chargeTest);
 $("write-run").addEventListener("click", writeTest);
 refresh();
-setInterval(refresh, 3000);
+let pollTimer = setInterval(refresh, 3000);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  } else {
+    refresh();
+    if (!pollTimer) {
+      pollTimer = setInterval(refresh, 3000);
+    }
+  }
+});

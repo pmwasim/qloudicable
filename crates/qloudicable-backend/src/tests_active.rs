@@ -1,9 +1,9 @@
 //! The active tests' OS-independent parts.
+use qloudicable_core::bench::{self, DataTest};
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::Path;
 use std::time::Instant;
-use qloudicable_core::bench::{self, DataTest};
 
 const BLOCK: usize = 1 << 20;
 
@@ -15,7 +15,11 @@ pub fn write_speed(dir: &Path, megabytes: u32, link_mbps: Option<u32>) -> io::Re
     let result = timed_write(&path, megabytes);
     let _ = fs::remove_file(&path);
     let seconds = result?;
-    Ok(bench::data_test(megabytes as u64 * BLOCK as u64, seconds, link_mbps))
+    Ok(bench::data_test(
+        megabytes as u64 * BLOCK as u64,
+        seconds,
+        link_mbps,
+    ))
 }
 
 fn timed_write(path: &Path, megabytes: u32) -> io::Result<f64> {

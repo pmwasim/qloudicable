@@ -30,7 +30,10 @@ pub struct Access {
 
 impl Access {
     pub fn new(level: Level, why: &str) -> Self {
-        Self { level, why: why.to_string() }
+        Self {
+            level,
+            why: why.to_string(),
+        }
     }
     pub fn full() -> Self {
         Self::new(Level::Full, "")
@@ -163,7 +166,13 @@ pub struct Pdo {
 
 impl Pdo {
     pub fn fixed(mv: u32, ma: u32) -> Self {
-        Self { kind: PdoKind::Fixed, min_mv: mv, max_mv: mv, max_ma: ma, max_mw: mv * ma / 1000 }
+        Self {
+            kind: PdoKind::Fixed,
+            min_mv: mv,
+            max_mv: mv,
+            max_ma: ma,
+            max_mw: mv * ma / 1000,
+        }
     }
 }
 

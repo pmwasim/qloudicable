@@ -2,14 +2,17 @@
 //! /sys/class/power_supply and /sys/bus/usb. Every path hangs off `root`, so tests
 //! run against a fake tree.
 use crate::capable_from_version;
-use std::fs;
-use std::path::Path;
 use qloudicable_core::pd;
 use qloudicable_core::vendors;
 use qloudicable_core::*;
+use std::fs;
+use std::path::Path;
 
 fn read(p: &Path) -> Option<String> {
-    fs::read_to_string(p).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    fs::read_to_string(p)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 fn hex32(p: &Path) -> Option<u32> {
@@ -30,7 +33,10 @@ fn bracketed(s: String) -> String {
 
 /// "9000mV" -> 9000. The kernel prints units in these attributes.
 fn milli(p: &Path) -> Option<u32> {
-    read(p)?.trim_end_matches(|c: char| !c.is_ascii_digit()).parse().ok()
+    read(p)?
+        .trim_end_matches(|c: char| !c.is_ascii_digit())
+        .parse()
+        .ok()
 }
 
 fn entries(p: &Path) -> Vec<String> {
@@ -53,7 +59,10 @@ fn pdos(capabilities: &Path) -> Vec<Pdo> {
             // "4:programmable_supply".
             let (_, kind) = name.split_once(':')?;
             Some(match kind {
-                "fixed_supply" => Pdo::fixed(milli(&d.join("voltage"))?, milli(&d.join("maximum_current"))?),
+                "fixed_supply" => Pdo::fixed(
+                    milli(&d.join("voltage"))?,
+                    milli(&d.join("maximum_current"))?,
+                ),
                 "variable_supply" | "programmable_supply" => {
                     let (min, max, ma) = (
                         milli(&d.join("minimum_voltage"))?,
@@ -61,7 +70,11 @@ fn pdos(capabilities: &Path) -> Vec<Pdo> {
                         milli(&d.join("maximum_current"))?,
                     );
                     Pdo {
-                        kind: if kind == "variable_supply" { PdoKind::Variable } else { PdoKind::Pps },
+                        kind: if kind == "variable_supply" {
+                            PdoKind::Variable
+                        } else {
+                            PdoKind::Pps
+                        },
                         min_mv: min,
                         max_mv: max,
                         max_ma: ma,
@@ -74,7 +87,13 @@ fn pdos(capabilities: &Path) -> Vec<Pdo> {
                         milli(&d.join("maximum_voltage"))?,
                         milli(&d.join("maximum_power"))?,
                     );
-                    Pdo { kind: PdoKind::Battery, min_mv: min, max_mv: max, max_ma: mw * 1000 / max.max(1), max_mw: mw }
+                    Pdo {
+                        kind: PdoKind::Battery,
+                        min_mv: min,
+                        max_mv: max,
+                        max_ma: mw * 1000 / max.max(1),
+                        max_mw: mw,
+                    }
                 }
                 _ => return None,
             })
@@ -88,14 +107,16 @@ fn read_port(typec: &Path, name: &str) -> Port {
     let cable_dir = typec.join(format!("{name}-cable"));
     let connected = partner_dir.exists();
 
-    let cable = hex32(&cable_dir.join("identity/id_header")).filter(|h| *h != 0).map(|header| {
-        pd::decode_cable(
-            header,
-            hex32(&cable_dir.join("identity/cert_stat")).unwrap_or(0),
-            hex32(&cable_dir.join("identity/product")).unwrap_or(0),
-            hex32(&cable_dir.join("identity/product_type_vdo1")).unwrap_or(0),
-        )
-    });
+    let cable = hex32(&cable_dir.join("identity/id_header"))
+        .filter(|h| *h != 0)
+        .map(|header| {
+            pd::decode_cable(
+                header,
+                hex32(&cable_dir.join("identity/cert_stat")).unwrap_or(0),
+                hex32(&cable_dir.join("identity/product")).unwrap_or(0),
+                hex32(&cable_dir.join("identity/product_type_vdo1")).unwrap_or(0),
+            )
+        });
 
     let partner = connected.then(|| {
         let header = hex32(&partner_dir.join("identity/id_header")).filter(|h| *h != 0);
@@ -110,7 +131,10 @@ fn read_port(typec: &Path, name: &str) -> Port {
     });
 
     let source_pdos = pdos(&partner_dir.join("usb_power_delivery/source-capabilities"));
-    let number = name.trim_start_matches("port").parse::<u32>().map_or(0, |n| n + 1);
+    let number = name
+        .trim_start_matches("port")
+        .parse::<u32>()
+        .map_or(0, |n| n + 1);
     Port {
         id: name.to_string(),
         label: format!("USB-C port {number}"),
@@ -153,11 +177,14 @@ fn usb_devices(root: &Path, typec: &Path, ports: &[Port]) -> Vec<UsbDevice> {
             Some(UsbDevice {
                 vendor_id,
                 product_id: hex16(&d.join("idProduct")).unwrap_or(0),
-                vendor_name: read(&d.join("manufacturer")).or_else(|| vendors::name(vendor_id).map(str::to_string)),
+                vendor_name: read(&d.join("manufacturer"))
+                    .or_else(|| vendors::name(vendor_id).map(str::to_string)),
                 product_name: read(&d.join("product")),
                 capable_mbps: usb_version.as_deref().and_then(capable_from_version),
                 usb_version,
-                speed_mbps: read(&d.join("speed")).and_then(|s| s.parse::<f64>().ok()).map(|m| m.round() as u32),
+                speed_mbps: read(&d.join("speed"))
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .map(|m| m.round() as u32),
                 port_id: port_for_device(typec, ports, &name),
                 is_hub: read(&d.join("bDeviceClass")).as_deref() == Some("09"),
             })
@@ -186,7 +213,11 @@ fn power(root: &Path) -> Option<PowerReading> {
         });
     };
     // sysfs reports micro-units, and sign differs between drivers.
-    let micro = |f: &str| read(&d.join(f)).and_then(|s| s.parse::<i64>().ok()).map(|v| (v.unsigned_abs() / 1000) as u32);
+    let micro = |f: &str| {
+        read(&d.join(f))
+            .and_then(|s| s.parse::<i64>().ok())
+            .map(|v| (v.unsigned_abs() / 1000) as u32)
+    };
     let voltage_mv = micro("voltage_now");
     let current_ma = micro("current_now");
     let milliwatts = micro("power_now").or_else(|| Some(voltage_mv? * current_ma? / 1000));
@@ -229,7 +260,14 @@ pub fn collect(root: &Path) -> Snapshot {
         } else {
             Access::new(Level::None, no_typec)
         },
-        charger_profiles: if has_ports { Access::new(Level::Partial, "Needs a kernel and port driver that publish PD data.") } else { Access::new(Level::None, no_typec) },
+        charger_profiles: if has_ports {
+            Access::new(
+                Level::Partial,
+                "Needs a kernel and port driver that publish PD data.",
+            )
+        } else {
+            Access::new(Level::None, no_typec)
+        },
         link_speed: Access::full(),
         power_measurement: match &power {
             Some(p) if p.milliwatts.is_some() => Access::full(),
@@ -278,23 +316,44 @@ mod tests {
         t.put(&format!("{c}/port0/data_role"), "[host] device");
         t.put(&format!("{c}/port0/power_role"), "source [sink]");
         t.put(&format!("{c}/port0/orientation"), "normal");
-        t.put(&format!("{c}/port0/power_operation_mode"), "usb_power_delivery");
+        t.put(
+            &format!("{c}/port0/power_operation_mode"),
+            "usb_power_delivery",
+        );
         t.put(&format!("{c}/port0/usb3-port1/marker"), "");
         t.put(&format!("{c}/port1/data_role"), "[host] device");
-        t.put(&format!("{c}/port0-partner/supports_usb_power_delivery"), "yes");
-        t.put(&format!("{c}/port0-partner/identity/id_header"), "0x10000000");
+        t.put(
+            &format!("{c}/port0-partner/supports_usb_power_delivery"),
+            "yes",
+        );
+        t.put(
+            &format!("{c}/port0-partner/identity/id_header"),
+            "0x10000000",
+        );
         t.put(&format!("{c}/port0-cable/identity/id_header"), "0x180005ac");
         t.put(&format!("{c}/port0-cable/identity/cert_stat"), "0x00000042");
         t.put(&format!("{c}/port0-cable/identity/product"), "0x70010100");
-        t.put(&format!("{c}/port0-cable/identity/product_type_vdo1"), "0x00080020");
+        t.put(
+            &format!("{c}/port0-cable/identity/product_type_vdo1"),
+            "0x00080020",
+        );
         let caps = format!("{c}/port0-partner/usb_power_delivery/source-capabilities");
         t.put(&format!("{caps}/1:fixed_supply/voltage"), "5000mV");
         t.put(&format!("{caps}/1:fixed_supply/maximum_current"), "3000mA");
         t.put(&format!("{caps}/2:fixed_supply/voltage"), "20000mV");
         t.put(&format!("{caps}/2:fixed_supply/maximum_current"), "5000mA");
-        t.put(&format!("{caps}/3:programmable_supply/minimum_voltage"), "3300mV");
-        t.put(&format!("{caps}/3:programmable_supply/maximum_voltage"), "21000mV");
-        t.put(&format!("{caps}/3:programmable_supply/maximum_current"), "3000mA");
+        t.put(
+            &format!("{caps}/3:programmable_supply/minimum_voltage"),
+            "3300mV",
+        );
+        t.put(
+            &format!("{caps}/3:programmable_supply/maximum_voltage"),
+            "21000mV",
+        );
+        t.put(
+            &format!("{caps}/3:programmable_supply/maximum_current"),
+            "3000mA",
+        );
         let u = "sys/bus/usb/devices";
         t.put(&format!("{u}/3-1/idVendor"), "0781");
         t.put(&format!("{u}/3-1/idProduct"), "5581");
@@ -329,7 +388,10 @@ mod tests {
         assert_eq!(c.vendor_id, 0x05ac);
         assert_eq!(c.product_id, 0x7001);
         assert_eq!(c.max_watts, Some(60));
-        assert_eq!(p.partner.as_ref().unwrap().kind.as_deref(), Some("USB peripheral"));
+        assert_eq!(
+            p.partner.as_ref().unwrap().kind.as_deref(),
+            Some("USB peripheral")
+        );
         assert_eq!(p.source_pdos.len(), 3);
         assert_eq!(p.source_pdos[1], Pdo::fixed(20000, 5000));
         assert_eq!(p.source_pdos[2].kind, PdoKind::Pps);
@@ -356,7 +418,10 @@ mod tests {
         let r = diagnose(&collect(&t.0));
         let codes: Vec<_> = r.findings.iter().map(|f| f.code.as_str()).collect();
         assert!(codes.contains(&"cable_limits_charging"), "{codes:?}");
-        assert!(codes.contains(&"cable_limits_data") || codes.contains(&"link_below_device"), "{codes:?}");
+        assert!(
+            codes.contains(&"cable_limits_data") || codes.contains(&"link_below_device"),
+            "{codes:?}"
+        );
         assert!(codes.contains(&"measured_charge_rate"), "{codes:?}");
     }
 
@@ -373,8 +438,14 @@ mod tests {
     fn zeroed_identity_counts_as_no_cable_record() {
         let t = Tree::new("zero");
         t.put("sys/class/typec/port0/data_role", "[host] device");
-        t.put("sys/class/typec/port0-partner/supports_usb_power_delivery", "yes");
-        t.put("sys/class/typec/port0-cable/identity/id_header", "0x00000000");
+        t.put(
+            "sys/class/typec/port0-partner/supports_usb_power_delivery",
+            "yes",
+        );
+        t.put(
+            "sys/class/typec/port0-cable/identity/id_header",
+            "0x00000000",
+        );
         let s = collect(&t.0);
         assert!(s.ports[0].cable.is_none());
         assert!(s.ports[0].partner.as_ref().unwrap().kind.is_none());

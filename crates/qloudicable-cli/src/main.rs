@@ -1,8 +1,8 @@
+use qloudicable_backend::{collect, tests_active};
+use qloudicable_core::{bench, diagnose, render};
 use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
-use qloudicable_backend::{collect, tests_active};
-use qloudicable_core::{bench, diagnose, render};
 
 const HELP: &str = "QloudiCable by qloudihub.com: what can this USB-C cable actually do?
 
@@ -24,7 +24,10 @@ fn main() {
             0
         }
         Some("--json") => {
-            println!("{}", serde_json::to_string_pretty(&diagnose(&collect())).expect("report serialises"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&diagnose(&collect())).expect("report serialises")
+            );
             0
         }
         Some("--watch") => watch(),
@@ -78,7 +81,10 @@ fn charge_test(seconds: Option<&String>) -> i32 {
     }
     let t = bench::charge_test(&watts);
     println!("{}", t.summary);
-    println!("Samples: {}, average {:.1} W, min {:.1} W, max {:.1} W", t.samples, t.avg_w, t.min_w, t.max_w);
+    println!(
+        "Samples: {}, average {:.1} W, min {:.1} W, max {:.1} W",
+        t.samples, t.avg_w, t.min_w, t.max_w
+    );
     if t.samples == 0 { 1 } else { 0 }
 }
 

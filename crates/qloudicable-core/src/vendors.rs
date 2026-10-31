@@ -4,9 +4,11 @@ static TABLE: &str = include_str!("../data/vendors.tsv");
 /// The table is sorted by id, one `xxxx<TAB>name` line per vendor.
 pub fn name(id: u16) -> Option<&'static str> {
     let want = format!("{id:04x}");
-    TABLE
-        .lines()
-        .find_map(|l| l.split_once('\t').filter(|(k, _)| *k == want).map(|(_, v)| v))
+    TABLE.lines().find_map(|l| {
+        l.split_once('\t')
+            .filter(|(k, _)| *k == want)
+            .map(|(_, v)| v)
+    })
 }
 
 #[cfg(test)]

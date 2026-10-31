@@ -1,10 +1,10 @@
 //! Windows: the USB hub IOCTLs and the battery driver. Windows has no public way
 //! to read a cable's e-marker or the charger's PD profiles from an app, so those
 //! are declared unavailable, while "device can do X, link runs at Y" stays exact.
-use std::mem::{size_of, zeroed};
-use std::ptr::{null, null_mut};
 use qloudicable_core::vendors;
 use qloudicable_core::*;
+use std::mem::{size_of, zeroed};
+use std::ptr::{null, null_mut};
 use windows_sys::Win32::Devices::DeviceAndDriverInstallation::*;
 use windows_sys::Win32::Devices::Usb::*;
 use windows_sys::Win32::Foundation::*;
@@ -30,7 +30,12 @@ impl Drop for Handle {
 fn interface_paths(guid: &GUID) -> Vec<Vec<u16>> {
     let mut out = Vec::new();
     unsafe {
-        let set = SetupDiGetClassDevsW(guid, null(), null_mut(), DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+        let set = SetupDiGetClassDevsW(
+            guid,
+            null(),
+            null_mut(),
+            DIGCF_PRESENT | DIGCF_DEVICEINTERFACE,
+        );
         if set as isize == -1 {
             return out;
         }
@@ -51,7 +56,9 @@ fn interface_paths(guid: &GUID) -> Vec<Vec<u16>> {
             let mut buf = vec![0u64; needed as usize / 8 + 1];
             let detail = buf.as_mut_ptr() as *mut SP_DEVICE_INTERFACE_DETAIL_DATA_W;
             (*detail).cbSize = size_of::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>() as u32;
-            if SetupDiGetDeviceInterfaceDetailW(set, &iface, detail, needed, null_mut(), null_mut()) != 0 {
+            if SetupDiGetDeviceInterfaceDetailW(set, &iface, detail, needed, null_mut(), null_mut())
+                != 0
+            {
                 let start = std::ptr::addr_of!((*detail).DevicePath) as *const u16;
                 let mut path = Vec::new();
                 let mut i = 0;
@@ -69,9 +76,21 @@ fn interface_paths(guid: &GUID) -> Vec<Vec<u16>> {
 }
 
 fn open(path: &[u16], write: bool) -> Option<Handle> {
-    let access = if write { GENERIC_READ | GENERIC_WRITE } else { GENERIC_READ };
+    let access = if write {
+        GENERIC_READ | GENERIC_WRITE
+    } else {
+        GENERIC_READ
+    };
     let h = unsafe {
-        CreateFileW(path.as_ptr(), access, FILE_SHARE_READ | FILE_SHARE_WRITE, null(), OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, null_mut())
+        CreateFileW(
+            path.as_ptr(),
+            access,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            null(),
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            null_mut(),
+        )
     };
     (h != INVALID_HANDLE_VALUE).then(|| Handle(h))
 }
@@ -80,7 +99,18 @@ fn open(path: &[u16], write: bool) -> Option<Handle> {
 unsafe fn ioctl_inout<T>(h: &Handle, code: u32, data: *mut T) -> bool {
     let mut got = 0u32;
     let size = size_of::<T>() as u32;
-    unsafe { DeviceIoControl(h.0, code, data as _, size, data as _, size, &mut got, null_mut()) != 0 }
+    unsafe {
+        DeviceIoControl(
+            h.0,
+            code,
+            data as _,
+            size,
+            data as _,
+            size,
+            &mut got,
+            null_mut(),
+        ) != 0
+    }
 }
 
 fn operating_mbps(speed: u8, v2_flags: u32) -> u32 {
@@ -119,7 +149,11 @@ fn read_hub(path: &[u16], hub_index: usize, ports: &mut Vec<Port>, devices: &mut
         for port in 1..=count {
             let mut conn: USB_NODE_CONNECTION_INFORMATION_EX = zeroed();
             conn.ConnectionIndex = port;
-            if !ioctl_inout(&hub, IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX, &mut conn) {
+            if !ioctl_inout(
+                &hub,
+                IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX,
+                &mut conn,
+            ) {
                 continue;
             }
             let mut props: USB_PORT_CONNECTOR_PROPERTIES = zeroed();
@@ -130,7 +164,12 @@ fn read_hub(path: &[u16], hub_index: usize, ports: &mut Vec<Port>, devices: &mut
             let connected = conn.ConnectionStatus == DeviceConnected;
             let id = format!("hub{hub_index}-{port}");
             if is_type_c {
-                ports.push(Port { id: id.clone(), label: format!("USB-C port (hub {hub_index}, port {port})"), connected, ..Default::default() });
+                ports.push(Port {
+                    id: id.clone(),
+                    label: format!("USB-C port (hub {hub_index}, port {port})"),
+                    connected,
+                    ..Default::default()
+                });
             }
             if !connected {
                 continue;
@@ -139,7 +178,15 @@ fn read_hub(path: &[u16], hub_index: usize, ports: &mut Vec<Port>, devices: &mut
             v2.ConnectionIndex = port;
             v2.Length = size_of::<USB_NODE_CONNECTION_INFORMATION_EX_V2>() as u32;
             v2.SupportedUsbProtocols.ul = 0b111; // USB 1.1, 2.0 and 3.0
-            let flags = if ioctl_inout(&hub, IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX_V2, &mut v2) { v2.Flags.ul } else { 0 };
+            let flags = if ioctl_inout(
+                &hub,
+                IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX_V2,
+                &mut v2,
+            ) {
+                v2.Flags.ul
+            } else {
+                0
+            };
             let d = &conn.DeviceDescriptor;
             let vendor_id = d.idVendor;
             let bcd = d.bcdUSB;
@@ -165,13 +212,34 @@ fn battery() -> Option<PowerReading> {
         let mut wait = 0u32;
         let mut tag = 0u32;
         let mut got = 0u32;
-        if DeviceIoControl(h.0, IOCTL_BATTERY_QUERY_TAG, &mut wait as *mut u32 as _, 4, &mut tag as *mut u32 as _, 4, &mut got, null_mut()) == 0 || tag == 0 {
+        if DeviceIoControl(
+            h.0,
+            IOCTL_BATTERY_QUERY_TAG,
+            &mut wait as *mut u32 as _,
+            4,
+            &mut tag as *mut u32 as _,
+            4,
+            &mut got,
+            null_mut(),
+        ) == 0
+            || tag == 0
+        {
             return None;
         }
         let mut q: BATTERY_WAIT_STATUS = zeroed();
         q.BatteryTag = tag;
         let mut st: BATTERY_STATUS = zeroed();
-        if DeviceIoControl(h.0, IOCTL_BATTERY_QUERY_STATUS, &mut q as *mut _ as _, size_of::<BATTERY_WAIT_STATUS>() as u32, &mut st as *mut _ as _, size_of::<BATTERY_STATUS>() as u32, &mut got, null_mut()) == 0 {
+        if DeviceIoControl(
+            h.0,
+            IOCTL_BATTERY_QUERY_STATUS,
+            &mut q as *mut _ as _,
+            size_of::<BATTERY_WAIT_STATUS>() as u32,
+            &mut st as *mut _ as _,
+            size_of::<BATTERY_STATUS>() as u32,
+            &mut got,
+            null_mut(),
+        ) == 0
+        {
             return None;
         }
         const ONLINE: u32 = 1;
@@ -194,7 +262,10 @@ fn battery() -> Option<PowerReading> {
             },
             external_power: Some(external),
             voltage_mv,
-            current_ma: voltage_mv.zip(rate).filter(|(v, _)| *v > 0).map(|(v, r)| r * 1000 / v),
+            current_ma: voltage_mv
+                .zip(rate)
+                .filter(|(v, _)| *v > 0)
+                .map(|(v, r)| r * 1000 / v),
             milliwatts: rate,
             battery_percent: None,
             source: "Windows battery driver".into(),
@@ -209,7 +280,8 @@ pub fn collect() -> Snapshot {
         read_hub(path, i, &mut ports, &mut usb_devices);
     }
     let power = battery();
-    let hidden = "Windows does not let apps read this. The USB-C driver keeps it inside the kernel.";
+    let hidden =
+        "Windows does not let apps read this. The USB-C driver keeps it inside the kernel.";
     Snapshot {
         platform: Platform::Windows,
         capabilities: Capabilities {
@@ -217,7 +289,10 @@ pub fn collect() -> Snapshot {
             charger_profiles: Access::new(Level::None, hidden),
             link_speed: Access::full(),
             power_measurement: if power.as_ref().is_some_and(|p| p.milliwatts.is_some()) {
-                Access::new(Level::Partial, "Measured at the battery, so it reads below the charger's rating.")
+                Access::new(
+                    Level::Partial,
+                    "Measured at the battery, so it reads below the charger's rating.",
+                )
             } else {
                 Access::new(Level::None, "No battery reading (desktop PC?).")
             },

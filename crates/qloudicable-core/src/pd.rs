@@ -55,9 +55,16 @@ fn current_a(vdo: u32) -> Option<u8> {
 }
 
 /// 20 V is the Standard Power Range ceiling; only an EPR 5 A cable carries 48 V.
-fn max_watts(current: Option<u8>, epr: bool) -> Option<u32> {
+fn max_watts(current: Option<u8>, epr: bool, vdo1: u32) -> Option<u32> {
     match (current?, epr) {
-        (5, true) => Some(240),
+        (5, true) => {
+            // USB-PD 3.1 Passive Cable VDO bits 20:18: 001b = 30V max (28V @ 5A EPR = 140W)
+            if bits(vdo1, 20, 18) == 0b001 {
+                Some(140)
+            } else {
+                Some(240)
+            }
+        }
         (a, _) => Some(a as u32 * 20),
     }
 }
@@ -75,7 +82,7 @@ pub fn decode_cable(id_header: u32, cert_stat: u32, product: u32, vdo1: u32) -> 
         speed: speed(vdo1),
         current_a: current,
         epr,
-        max_watts: max_watts(current, epr),
+        max_watts: max_watts(current, epr, vdo1),
         raw_vdos: vec![id_header, cert_stat, product, vdo1],
     }
 }
@@ -103,12 +110,21 @@ mod tests {
 
     #[test]
     fn watt_limits_follow_current_and_epr() {
-        assert_eq!(max_watts(Some(3), false), Some(60));
-        assert_eq!(max_watts(Some(5), false), Some(100));
-        assert_eq!(max_watts(Some(5), true), Some(240));
+        assert_eq!(max_watts(Some(3), false, 0), Some(60));
+        assert_eq!(max_watts(Some(5), false, 0), Some(100));
+        assert_eq!(max_watts(Some(5), true, 0), Some(240));
+        assert_eq!(max_watts(Some(5), true, 0b001 << 18), Some(140));
         // EPR needs 5 A, so a 3 A cable claiming it stays at 60 W.
-        assert_eq!(max_watts(Some(3), true), Some(60));
-        assert_eq!(max_watts(None, false), None);
+        assert_eq!(max_watts(Some(3), true, 0), Some(60));
+        assert_eq!(max_watts(None, false, 0), None);
+    }
+
+    #[test]
+    fn epr_140w_cable_decodes() {
+        let vdo_140w = (0b001 << 18) | (1 << 17) | (0b10 << 5) | 0b011;
+        let c = decode_cable(HEADER, 0x1234, 0x7001_0100, vdo_140w);
+        assert!(c.epr);
+        assert_eq!(c.max_watts, Some(140));
     }
 
     #[test]
