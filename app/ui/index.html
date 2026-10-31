@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <a class="skip" href="#stage">Skip to the result</a>
+  <a class="skip" href="#dash">Skip to the dashboard</a>
 
   <div class="app">
     <header class="top">
@@ -25,48 +25,37 @@
 
     <div id="error" class="notice" role="alert" hidden></div>
 
-    <main class="main">
-      <aside class="rail rail-left" aria-label="Ports and devices">
-        <h2 class="eyebrow">Ports</h2>
-        <div id="ports" class="stack"></div>
-        <h2 class="eyebrow">Devices</h2>
-        <div id="devices" class="stack"></div>
-        <button id="devices-more" type="button" class="btn link" hidden></button>
-      </aside>
-
-      <section class="stage" id="stage" aria-labelledby="hero-title" data-level="idle">
-        <div class="aura" aria-hidden="true"></div>
-        <span id="hero-status" class="status-pill"></span>
-        <h1 id="hero-title" class="hero-title">Checking your ports…</h1>
-        <p id="hero-text" class="hero-text" aria-live="polite"></p>
-        <svg id="stage-cable" class="stage-cable" role="img" aria-label="Cable diagram"></svg>
-        <button id="hero-action" type="button" class="btn primary big" hidden></button>
-        <div id="findings-chips" class="chips"></div>
-      </section>
-
-      <aside class="rail rail-right" aria-label="Power and capabilities">
-        <h2 class="eyebrow">Power right now</h2>
-        <div class="power-card">
-          <svg id="power-ring" class="ring" role="img" aria-label="Battery level"></svg>
-          <div class="power-read">
-            <strong id="power-big">—</strong>
-            <span id="power-state" class="muted"></span>
+    <main class="dash" id="dash" data-detail="closed">
+      <section class="verdict" id="verdict" aria-labelledby="hero-title" data-level="idle">
+        <div class="verdict-main">
+          <span id="hero-status" class="status-pill"></span>
+          <h1 id="hero-title" class="hero-title">Checking your ports…</h1>
+          <p id="hero-text" class="hero-text" aria-live="polite"></p>
+          <div class="verdict-actions">
+            <button id="hero-action" type="button" class="btn primary" hidden></button>
+            <button id="open-details" type="button" class="btn ghost" hidden></button>
           </div>
         </div>
-        <svg id="spark" class="spark" role="img" aria-label="Power over the last minute"></svg>
-        <div id="power-stats" class="tiles"></div>
-        <h2 class="eyebrow">What this device can show</h2>
-        <div id="access" class="stack"></div>
+        <svg id="path" class="path" role="img" aria-label="Power path"></svg>
+      </section>
+
+      <section class="tiles" id="tiles" aria-label="Live readings"></section>
+
+      <aside class="detail" id="detail" aria-labelledby="detail-title">
+        <header class="detail-head">
+          <h2 id="detail-title"></h2>
+          <button id="detail-close" type="button" class="btn ghost close-detail">Close</button>
+        </header>
+        <div id="detail-body" class="detail-body"></div>
       </aside>
     </main>
 
-    <nav class="dock" aria-label="Tests and tools">
-      <button id="tab-charge" type="button" class="dock-btn" aria-controls="panel-charge"><span aria-hidden="true">⚡</span>Charging</button>
-      <button id="tab-watch" type="button" class="dock-btn" aria-controls="panel-watch"><span aria-hidden="true">◎</span>Port watch</button>
-      <button id="tab-guide" type="button" class="dock-btn" aria-controls="panel-guide"><span aria-hidden="true">⇄</span>Both ends</button>
-      <button id="tab-drive" type="button" class="dock-btn" aria-controls="panel-drive"><span aria-hidden="true">▤</span>Drive speed</button>
-      <button id="open-details" type="button" class="dock-btn" aria-controls="sheet-details"><span aria-hidden="true">≡</span>Findings</button>
-      <button id="open-tools" type="button" class="dock-btn" aria-controls="sheet-tools"><span aria-hidden="true">⚙</span>Tools</button>
+    <nav class="dock" aria-label="Views and tools">
+      <button id="nav-overview" type="button" class="dock-btn" aria-pressed="true">Overview</button>
+      <button id="nav-ports" type="button" class="dock-btn" aria-pressed="false">Ports</button>
+      <button id="nav-power" type="button" class="dock-btn" aria-pressed="false">Power</button>
+      <button id="open-tests" type="button" class="dock-btn">Tests</button>
+      <button id="open-tools" type="button" class="dock-btn">Tools</button>
     </nav>
   </div>
 
@@ -111,6 +100,16 @@
     <p id="write-out" class="out" aria-live="polite"></p>
   </div>
 
+  <div id="sheet-tests" class="sheet" role="dialog" aria-modal="true" aria-labelledby="title-tests" hidden>
+    <header class="sheet-head"><h2 id="title-tests">Tests</h2><button type="button" class="btn ghost close" data-close>Close</button></header>
+    <div class="test-list">
+      <button type="button" class="test-card" data-open="charge"><b>Charging</b><span>Measures charging power for 30 seconds</span></button>
+      <button type="button" class="test-card" data-open="watch"><b>Port watch</b><span>Flags a cable that keeps dropping</span></button>
+      <button type="button" class="test-card" data-open="guide"><b>Both ends</b><span>Checks each plug in both positions</span></button>
+      <button type="button" class="test-card" data-open="drive" id="tab-drive"><b>Drive speed</b><span>Times a write to a folder you pick</span></button>
+    </div>
+  </div>
+
   <div id="sheet-details" class="sheet" role="dialog" aria-modal="true" aria-labelledby="title-details" hidden>
     <header class="sheet-head"><h2 id="title-details">What we found</h2><button type="button" class="btn ghost close" data-close>Close</button></header>
     <ul id="findings" class="findings"></ul>
@@ -125,6 +124,7 @@
   </div>
 
   <div id="sheet-tools" class="sheet" role="dialog" aria-modal="true" aria-labelledby="title-tools" hidden>
+    <div class="cap-block"><h3 class="eyebrow">What this device can show</h3><div id="access" class="stack"></div></div>
     <header class="sheet-head"><h2 id="title-tools">Tools</h2><button type="button" class="btn ghost close" data-close>Close</button></header>
     <div class="panel-actions">
       <button id="copy-json" type="button" class="btn ghost">Copy full report (JSON)</button>
