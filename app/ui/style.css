@@ -240,3 +240,9 @@ details.more code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, mo
 @media (max-width: 640px) {
   .tablist { mask-image: linear-gradient(to right, #000 86%, transparent); -webkit-mask-image: linear-gradient(to right, #000 86%, transparent); padding-right: 28px; }
 }
+
+.data-table { margin-top: 8px; font-size: 14px; }
+.data-table summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--ink-2); font-weight: 600; }
+.data-table table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.data-table th, .data-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); font-weight: 500; }
+.data-table th { color: var(--muted); }

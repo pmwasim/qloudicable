@@ -125,6 +125,11 @@
     try {
       const w = await call("watch_ports", { seconds: 10 });
       V.timeline($("watch-timeline"), w);
+      V.dataTable($("watch-timeline"), "port connections", [...new Set(w.samples.map((s) => s.port_id))].map((port) => {
+        const rows = w.samples.filter((s) => s.port_id === port);
+        const pct = Math.round((100 * rows.filter((s) => s.connected).length) / Math.max(1, rows.length));
+        return [port, `connected for ${pct}% of the ${w.duration_ms / 1000} seconds`];
+      }));
       const ports = [...new Set(w.samples.map((s) => s.port_id))];
       V.stats(
         $("watch-stats"),
@@ -154,10 +159,12 @@
 
   function live(samples) {
     V.lineChart($("charge-chart"), samples, { title: "Charging power", unit: "W", max: 100 });
+    V.dataTable($("charge-chart"), "charging power", samples.map((w, i) => [`Reading ${i + 1}`, `${w.toFixed(1)} W`]));
   }
 
   function charged(samples, t) {
     V.lineChart($("charge-chart"), samples, { title: "Charging power", unit: "W", max: 100, average: t.avg_w });
+    V.dataTable($("charge-chart"), "charging power", samples.map((w, i) => [`Reading ${i + 1}`, `${w.toFixed(1)} W`]));
     V.stats($("charge-stats"), [
       { value: t.avg_w, fmt: (v) => `${v.toFixed(1)} W`, label: "Average" },
       { value: t.min_w, fmt: (v) => `${v.toFixed(1)} W`, label: "Lowest" },

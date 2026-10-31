@@ -151,7 +151,7 @@
     reset(svg, "0 0 600 150", `End ${state.end} in the port, ${state.step === 2 ? "turned 180 degrees" : "as inserted"}: ${label}`);
 
     node("rect", { x: 10, y: 54, width: 100, height: 52, rx: 10, class: "viz-device" }, svg);
-    node("text", { x: 60, y: 86, "text-anchor": "middle", class: "viz-axis" }, svg).textContent = "Port";
+    node("text", { x: 60, y: 86, "text-anchor": "middle", class: "viz-label" }, svg).textContent = "Port";
     node("text", { x: 150, y: 44, "text-anchor": "middle", class: "viz-label" }, svg).textContent = `End ${state.end}`;
 
     const plug = node("g", { class: "viz-plug-group" }, svg);
@@ -169,8 +169,34 @@
     node("rect", { x: 420, y: 62, width: 60, height: 36, rx: 6, class: "viz-plug" }, svg);
     node("text", { x: 450, y: 44, "text-anchor": "middle", class: "viz-label" }, svg).textContent = `End ${other}`;
     node("rect", { x: 490, y: 54, width: 100, height: 52, rx: 10, class: "viz-device" }, svg);
-    node("text", { x: 540, y: 86, "text-anchor": "middle", class: "viz-axis" }, svg).textContent = "Other end";
-    node("text", { x: 300, y: 130, "text-anchor": "middle", class: "viz-axis" }, svg).textContent = label;
+    node("text", { x: 540, y: 86, "text-anchor": "middle", class: "viz-label" }, svg).textContent = "Other end";
+    node("text", { x: 300, y: 130, "text-anchor": "middle", class: "viz-label" }, svg).textContent = label;
+  }
+
+  // The numbers behind a chart, for screen readers and anyone who wants them.
+  function dataTable(svg, caption, rows) {
+    let box = svg.nextElementSibling;
+    if (!box || !box.classList.contains("data-table")) {
+      box = document.createElement("details");
+      box.className = "data-table";
+      svg.after(box);
+    }
+    const summary = document.createElement("summary");
+    summary.textContent = `Show the numbers: ${caption}`;
+    const table = document.createElement("table");
+    const body = document.createElement("tbody");
+    for (const [label, value] of rows) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.textContent = label;
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.append(th, td);
+      body.append(tr);
+    }
+    table.append(body);
+    box.replaceChildren(summary, table);
   }
 
   // Big numbers that count up.
@@ -191,5 +217,5 @@
     }
   }
 
-  window.QCViz = { lineChart, timeline, ring, cable, stats, countUp };
+  window.QCViz = { lineChart, timeline, ring, cable, stats, countUp, dataTable };
 })();
