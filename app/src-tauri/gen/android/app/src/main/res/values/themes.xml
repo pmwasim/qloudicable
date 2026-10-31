@@ -1,0 +1,7 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.qloudicable_app" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Shows behind the system bars; matches the page background in app/ui/style.css. -->
+        <item name="android:windowBackground">#ffffff</item>
+    </style>
+</resources>

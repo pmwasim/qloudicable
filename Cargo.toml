@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["crates/qloudicable-core", "crates/qloudicable-backend", "crates/qloudicable-cli", "crates/tauri-plugin-qloudicable", "app/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["qloudihub.com"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+qloudicable-core = { path = "crates/qloudicable-core" }
+qloudicable-backend = { path = "crates/qloudicable-backend" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -1,0 +1,14 @@
+[package]
+name = "tauri-plugin-qloudicable"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "tauri-plugin-qloudicable"
+
+[dependencies]
+tauri = "2"
+serde.workspace = true
+serde_json.workspace = true
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

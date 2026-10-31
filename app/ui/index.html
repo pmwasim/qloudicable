@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>QloudiCable</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <img src="mark.svg" alt="" width="30" height="30">
+    <div class="brand"><strong>QloudiCable</strong><span>by qloudihub.com</span></div>
+    <div class="actions">
+      <button id="copy" type="button">Copy report</button>
+      <button id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+  <main>
+    <section id="verdict" class="verdict" aria-live="polite"></section>
+    <div id="error" class="error" role="alert" hidden></div>
+    <section id="findings-box"><h2>What we found</h2><ul id="findings" class="findings"></ul></section>
+    <section><h2>Ports</h2><div id="ports" class="cards"></div></section>
+    <section id="power-box"><h2>Power right now</h2><div id="power" class="card"></div></section>
+    <section id="devices-box"><h2>USB devices</h2><div id="devices" class="card list"></div></section>
+    <section>
+      <h2>Tests</h2>
+      <div class="cards">
+        <div class="card test">
+          <h3>Charge test</h3>
+          <p>Reads charging power once a second for 30 seconds and looks for drops. Plug in the charger and cable you want to check, with the battery below 80%.</p>
+          <button id="charge-run" type="button">Start charge test</button>
+          <p id="charge-out" class="out" aria-live="polite"></p>
+        </div>
+        <div class="card test" id="write-card">
+          <h3>Drive write test</h3>
+          <p>Writes a 256 MB temporary file to a folder you pick on a USB drive, times it, then deletes it. Nothing else on the drive is touched.</p>
+          <button id="write-run" type="button">Choose folder and start</button>
+          <p id="write-out" class="out" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+    <section><h2>What this device lets us see</h2><div id="access" class="card list"></div></section>
+  </main>
+  <footer>QloudiCable <span id="version"></span> reads cable data on this device. Nothing leaves it unless you copy the report yourself.</footer>
+  <script src="demo.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
