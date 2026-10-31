@@ -1,9 +1,6 @@
 use qloudicable_backend::{collect, tests_active};
 use qloudicable_core::{
-    bench, diagnose, render, resistance,
-    selfcheck::SelfCheck,
-    stability, test_matrix, version_label,
-    virtual_engine::{VirtualCableProfile, VirtualTarget, VirtualTester},
+    bench, diagnose, render, resistance, selfcheck::SelfCheck, stability, version_label,
 };
 use std::path::Path;
 use std::thread::sleep;
@@ -18,8 +15,6 @@ USAGE:
   qloudicable --charge-test [S]   Sample charging power for S seconds (default 30)
   qloudicable --resistance [S]    Sample dynamic load steps to estimate loop resistance (default 15)
   qloudicable --sentinel [S]      Monitor connection stability & micro-dropouts for S seconds (default 30)
-  qloudicable --matrix-test       Run synthetic hardware scenario simulation matrix
-  qloudicable --virtual-test [P]  Simulate a virtual cable against chargers/devices (default: all profiles)
   qloudicable --self-check        Check this report's internal consistency
   qloudicable --write-test DIR    Time a 256 MB write to DIR, then delete the test file
   qloudicable --version
@@ -44,8 +39,6 @@ fn main() {
         Some("--charge-test") => charge_test(args.get(1)),
         Some("--resistance") => resistance_test(args.get(1)),
         Some("--sentinel") => sentinel_monitor(args.get(1)),
-        Some("--matrix-test") => matrix_test(),
-        Some("--virtual-test") => virtual_test(args.get(1)),
         Some("--self-check") => self_check(),
         Some("--write-test") => write_test(args.get(1)),
         Some("--version") => {
@@ -219,36 +212,6 @@ fn sentinel_monitor(seconds: Option<&String>) -> i32 {
     0
 }
 
-fn matrix_test() -> i32 {
-    println!("Running Synthetic Hardware R&D Simulation Matrix...");
-    let results = test_matrix::run_scenario_matrix();
-    let mut all_ok = true;
-    for (i, r) in results.iter().enumerate() {
-        let status = if r.passed { "[PASS]" } else { "[FAIL]" };
-        if !r.passed {
-            all_ok = false;
-        }
-        println!("{} {}. {}: {}", status, i + 1, r.name, r.description);
-        for f in &r.report.findings {
-            println!("     - [{:?}] {}: {}", f.severity, f.title, f.detail);
-        }
-    }
-    if all_ok {
-        println!(
-            "
-All {} R&D simulation scenarios verified successfully.",
-            results.len()
-        );
-        0
-    } else {
-        println!(
-            "
-Some simulation scenarios failed."
-        );
-        1
-    }
-}
-
 fn write_test(dir: Option<&String>) -> i32 {
     let Some(dir) = dir else {
         eprintln!("--write-test needs a folder on the drive you want to test");
@@ -264,89 +227,6 @@ fn write_test(dir: Option<&String>) -> i32 {
             1
         }
     }
-}
-
-fn virtual_test(profile_arg: Option<&String>) -> i32 {
-    let profiles = match profile_arg.map(|s| s.to_lowercase()).as_deref() {
-        Some("usb2") | Some("60w") => vec![VirtualCableProfile::Usb2Charging60W],
-        Some("apple") | Some("240w") => vec![VirtualCableProfile::AppleWovenEpr240W],
-        Some("usb3") | Some("10g") | Some("10gbps") => {
-            vec![VirtualCableProfile::Usb3Gen2_10Gbps_100W]
-        }
-        Some("usb4") | Some("40g") | Some("40gbps") => {
-            vec![VirtualCableProfile::Usb4Gen3x2_40Gbps_240W]
-        }
-        Some("tb4") | Some("thunderbolt") => vec![VirtualCableProfile::Thunderbolt4_40Gbps],
-        Some("counterfeit") | Some("bad") => vec![VirtualCableProfile::CounterfeitOrDamaged],
-        Some("unmarked") | Some("passive") => vec![VirtualCableProfile::UnmarkedPassive],
-        _ => vec![
-            VirtualCableProfile::AppleWovenEpr240W,
-            VirtualCableProfile::Usb4Gen3x2_40Gbps_240W,
-            VirtualCableProfile::Usb3Gen2_10Gbps_100W,
-            VirtualCableProfile::Usb2Charging60W,
-            VirtualCableProfile::CounterfeitOrDamaged,
-            VirtualCableProfile::UnmarkedPassive,
-        ],
-    };
-
-    println!("=== QloudiCable Virtual Cable Testing Engine ===");
-    for prof in profiles {
-        println!(
-            "
---- Profile: {:?} ---",
-            prof
-        );
-        // Test against a high-power 140W GaN charger
-        let charger_res =
-            VirtualTester::evaluate(&prof, &VirtualTarget::Charger { max_watts: 140 });
-        let p_bottleneck = if charger_res.cable_is_power_bottleneck {
-            " [CABLE LIMITS CHARGING]"
-        } else {
-            ""
-        };
-        println!(
-            "  140W Charger -> Negotiated: {} W{}{}, Dissipation: {:.2} W (Risk: {})",
-            charger_res.negotiated_watts.unwrap_or(0),
-            p_bottleneck,
-            if charger_res.thermal_risk {
-                " [THERMAL RISK]"
-            } else {
-                ""
-            },
-            charger_res.thermal_dissipation_watts,
-            charger_res.thermal_risk
-        );
-
-        // Test against a 10Gbps NVMe storage drive
-        let ssd_res = VirtualTester::evaluate(
-            &prof,
-            &VirtualTarget::HighSpeedStorage {
-                capable_mbps: 10_000,
-            },
-        );
-        let d_bottleneck = if ssd_res.cable_is_data_bottleneck {
-            " [CABLE THROTTLES DATA]"
-        } else {
-            ""
-        };
-        println!(
-            "  10Gbps SSD   -> Link Speed: {} Mbps{}, Stability: {}/100 ({:?})",
-            ssd_res.negotiated_mbps.unwrap_or(0),
-            d_bottleneck,
-            ssd_res.stability_score,
-            ssd_res.stability_verdict
-        );
-
-        println!(
-            "  Resistance   : {} mΩ ({})",
-            charger_res.estimated_loop_resistance.resistance_mohm,
-            charger_res.estimated_loop_resistance.rating.label()
-        );
-        for f in &charger_res.report.findings {
-            println!("    * [{:?}] {}: {}", f.severity, f.title, f.detail);
-        }
-    }
-    0
 }
 
 fn self_check() -> i32 {

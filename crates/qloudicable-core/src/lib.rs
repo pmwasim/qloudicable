@@ -4,14 +4,14 @@
 pub mod bench;
 pub mod diagnose;
 pub mod model;
+pub mod orientation;
 pub mod pd;
 pub mod render;
 pub mod resistance;
 pub mod selfcheck;
 pub mod stability;
-pub mod test_matrix;
 pub mod vendors;
-pub mod virtual_engine;
+pub mod watch;
 
 pub use diagnose::{Report, diagnose};
 pub use model::*;

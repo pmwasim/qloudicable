@@ -14,14 +14,10 @@ Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Current state: [docs/STA
 - `qloudicable --charge-test [S]`: Sample charging power for S seconds (default 30)
 - `qloudicable --resistance [S]`: Sample dynamic load steps to estimate loop resistance (default 15)
 - `qloudicable --sentinel [S]`: Monitor connection stability & micro-dropouts for S seconds (default 30)
-- `qloudicable --matrix-test`: Run synthetic hardware scenario simulation matrix
-- `qloudicable --virtual-test [P]`: Simulate a virtual cable against chargers/devices (default: all profiles)
 - `qloudicable --self-check`: Check this report's internal consistency
 - `qloudicable --write-test DIR`: Time a 256 MB write to DIR, then delete the test file
 - `qloudicable --version`: Show version
 - `qloudicable --help`: Show help
-
-Note: `--matrix-test` and `--virtual-test` use simulated cables, not real ones.
 
 ## Develop
 
@@ -32,7 +28,6 @@ cargo run -p qloudicable-cli -- --help
 cargo tauri dev -c app/src-tauri/tauri.conf.json   # desktop app
 ```
 
-Preview the UI with sample data by serving `app/ui` and opening `?demo=mac`, `windows`,
 `android` or `empty`.
 
 ## Build

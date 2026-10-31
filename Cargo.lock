@@ -2353,6 +2353,7 @@ version = "0.1.0"
 dependencies = [
  "qloudicable-backend",
  "qloudicable-core",
+ "serde",
  "serde_json",
  "tauri",
  "tauri-build",

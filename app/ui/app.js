@@ -11,7 +11,7 @@ function el(tag, props = {}, ...kids) {
 }
 
 const tauri = window.__TAURI__;
-const call = (cmd, args) => (tauri ? tauri.core.invoke(cmd, args) : window.QloudiCableDemo.invoke(cmd, args));
+const call = (cmd, args) => (tauri ? tauri.core.invoke(cmd, args) : Promise.reject(new Error("Open the QloudiCable app to use this.")));
 
 const SEVERITY = {
   good: { label: "Good", d: "M5 12.5 10 17.5 19 7" },
@@ -287,6 +287,7 @@ async function chargeTest() {
     try {
       const mw = await call("power_sample");
       if (mw != null) samples.push(mw / 1000);
+      if (window.QCFeatures) window.QCFeatures.live(samples);
       out.textContent = mw != null ? `${i + 1} of 30: ${(mw / 1000).toFixed(1)} W` : `${i + 1} of 30: no reading`;
     } catch (e) {
       out.textContent = `Test stopped: ${e}`;
@@ -299,6 +300,7 @@ async function chargeTest() {
   if (samples.length) {
     const t = await call("charge_result", { watts: samples });
     out.textContent = `${t.summary} Average ${t.avg_w.toFixed(1)} W, lowest ${t.min_w.toFixed(1)} W, highest ${t.max_w.toFixed(1)} W.`;
+    if (window.QCFeatures) window.QCFeatures.charged(samples, t);
   } else if (!out.textContent.startsWith("Test stopped")) {
     out.textContent = "This device gave no power readings, so the test could not run.";
   }
@@ -307,7 +309,7 @@ async function chargeTest() {
 async function writeTest() {
   const out = $("write-out");
   const button = $("write-run");
-  const dir = tauri ? await tauri.dialog.open({ directory: true, title: "Pick a folder on the drive to test" }) : "/demo";
+  const dir = await tauri.dialog.open({ directory: true, title: "Pick a folder on the drive to test" });
   if (!dir) return;
   button.disabled = true;
   out.textContent = "Writing 256 MB…";
@@ -318,44 +320,6 @@ async function writeTest() {
     out.textContent = String(e);
   } finally {
     button.disabled = false;
-  }
-}
-
-async function runSimulation() {
-  const profile = $("sim-profile").value;
-  const target = $("sim-target").value;
-  const out = $("sim-out");
-  const btn = $("sim-run");
-  btn.disabled = true;
-  btn.textContent = "Simulating…";
-  try {
-    const res = await call("virtual_test", { profile, target });
-    out.hidden = false;
-    const powerBottleneck = res.cable_is_power_bottleneck ? "Bottleneck: Cable limits charging" : "Power passed";
-    const dataBottleneck = res.cable_is_data_bottleneck ? "Bottleneck: Cable limits data speed" : "Data speed maxed";
-    const resRating = res.estimated_loop_resistance.rating.toLowerCase();
-    const stabRating = res.stability_verdict.toLowerCase();
-
-    out.replaceChildren(
-      el("div", { class: "sim-badge-row" },
-        el("span", { class: `badge ${res.cable_is_power_bottleneck ? "warn" : "ok"}` }, powerBottleneck),
-        el("span", { class: `badge ${res.cable_is_data_bottleneck ? "warn" : "ok"}` }, dataBottleneck),
-        el("span", { class: `badge ${res.thermal_risk ? "problem" : "ok"}` }, `Thermal: ${res.thermal_dissipation_watts.toFixed(2)} W loss`),
-        el("span", { class: `badge ${stabRating.includes("solid") ? "ok" : "warn"}` }, `Stability: ${res.stability_score}% (${res.stability_verdict})`)
-      ),
-      grid([
-        ["Negotiated Power", res.negotiated_watts ? `${res.negotiated_watts} W` : "None"],
-        ["Negotiated Link", res.negotiated_mbps ? speedWords(res.negotiated_mbps) : "None"],
-        ["Loop Resistance (R_loop)", `${res.estimated_loop_resistance.milliohms} mΩ (${res.estimated_loop_resistance.rating})`],
-        ["Analysis Note", res.estimated_loop_resistance.note]
-      ])
-    );
-  } catch (e) {
-    out.hidden = false;
-    out.replaceChildren(el("p", { class: "detail", textContent: `Simulation failed: ${e}` }));
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Simulate cable";
   }
 }
 
@@ -388,7 +352,6 @@ $("refresh").addEventListener("click", refresh);
 $("copy").addEventListener("click", copyReport);
 $("charge-run").addEventListener("click", chargeTest);
 $("write-run").addEventListener("click", writeTest);
-if ($("sim-run")) $("sim-run").addEventListener("click", runSimulation);
 if ($("qa-run")) $("qa-run").addEventListener("click", runQaAudit);
 refresh();
 let pollTimer = setInterval(refresh, 3000);

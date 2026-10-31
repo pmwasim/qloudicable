@@ -1,10 +1,10 @@
 use qloudicable_core::bench::{self, ChargeTest, DataTest};
+use qloudicable_core::orientation::{self, End, OrientationMatrix, PlugRun};
 use qloudicable_core::selfcheck::SelfCheck;
-use qloudicable_core::virtual_engine::{
-    VirtualCableProfile, VirtualTarget, VirtualTestReport, VirtualTester,
-};
+use qloudicable_core::watch::{self, PortSample, PortWatch};
 use qloudicable_core::{Report, Snapshot, diagnose};
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Runtime};
 
 #[cfg(target_os = "android")]
@@ -48,37 +48,72 @@ fn charge_result(watts: Vec<f64>) -> ChargeTest {
 }
 
 #[tauri::command]
-fn virtual_test(profile: String, target: String) -> Result<VirtualTestReport, String> {
-    let prof = match profile.as_str() {
-        "apple_woven_epr_240w" => VirtualCableProfile::AppleWovenEpr240W,
-        "usb4_gen3x2_40gbps_240w" => VirtualCableProfile::Usb4Gen3x2_40Gbps_240W,
-        "usb3_gen2_10gbps_100w" => VirtualCableProfile::Usb3Gen2_10Gbps_100W,
-        "usb2_charging_60w" => VirtualCableProfile::Usb2Charging60W,
-        "thunderbolt4_40gbps" => VirtualCableProfile::Thunderbolt4_40Gbps,
-        "counterfeit_or_damaged" => VirtualCableProfile::CounterfeitOrDamaged,
-        "unmarked_passive" => VirtualCableProfile::UnmarkedPassive,
-        other => return Err(format!("Unknown profile: {other}")),
-    };
-
-    let tgt = match target.as_str() {
-        "charger_140w" => VirtualTarget::Charger { max_watts: 140 },
-        "charger_65w" => VirtualTarget::Charger { max_watts: 65 },
-        "nvme_storage_10gbps" => VirtualTarget::HighSpeedStorage {
-            capable_mbps: 10_000,
-        },
-        "display_4k" => VirtualTarget::HighResolutionDisplay { bandwidth_gbps: 20 },
-        "legacy_device" => VirtualTarget::LegacyPeripheral,
-        other => return Err(format!("Unknown target: {other}")),
-    };
-
-    Ok(VirtualTester::evaluate(&prof, &tgt))
-}
-
-#[tauri::command]
 fn self_check<R: Runtime>(app: AppHandle<R>) -> Result<SelfCheck, String> {
     let snap = snapshot(&app)?;
     let rep = diagnose(&snap);
     Ok(SelfCheck::evaluate(&rep, &snap))
+}
+
+#[tauri::command]
+fn build_info() -> String {
+    qloudicable_core::version_label()
+}
+
+/// How often ports are read while watching. Fast enough to see a cable that cycles about once a second.
+const WATCH_INTERVAL_MS: u64 = 250;
+
+#[tauri::command]
+async fn watch_ports<R: Runtime>(app: AppHandle<R>, seconds: u32) -> Result<PortWatch, String> {
+    if !(3..=60).contains(&seconds) {
+        return Err("Watch for between 3 and 60 seconds.".into());
+    }
+    off_ui(move || {
+        let start = Instant::now();
+        let window = Duration::from_secs(seconds as u64);
+        let mut samples: Vec<PortSample> = Vec::new();
+        loop {
+            let t_ms = start.elapsed().as_millis() as u64;
+            for p in snapshot(&app)?.ports {
+                samples.push(PortSample {
+                    t_ms,
+                    port_id: p.id,
+                    connected: p.connected,
+                });
+            }
+            if start.elapsed() >= window {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(WATCH_INTERVAL_MS));
+        }
+        Ok(watch::analyze(
+            &samples,
+            seconds as u64 * 1000,
+            WATCH_INTERVAL_MS,
+        ))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn capture_run<R: Runtime>(
+    app: AppHandle<R>,
+    end: String,
+    step: u8,
+) -> Result<PlugRun, String> {
+    let end = match end.as_str() {
+        "A" => End::A,
+        "B" => End::B,
+        _ => return Err("End must be A or B.".into()),
+    };
+    if !(1..=2).contains(&step) {
+        return Err("Position must be 1 (as inserted) or 2 (turned 180 degrees).".into());
+    }
+    off_ui(move || Ok(orientation::capture(&diagnose(&snapshot(&app)?), end, step))).await
+}
+
+#[tauri::command]
+fn orientation_matrix(runs: Vec<PlugRun>) -> OrientationMatrix {
+    orientation::matrix(&runs)
 }
 
 #[tauri::command]
@@ -102,9 +137,12 @@ pub fn run() {
             report,
             power_sample,
             charge_result,
-            virtual_test,
             self_check,
-            write_test
+            write_test,
+            build_info,
+            watch_ports,
+            capture_run,
+            orientation_matrix
         ])
         .run(tauri::generate_context!())
         .expect("error while running QloudiCable");
